@@ -1,0 +1,8 @@
+# All the IDE related directories
+.vscode
+.idea
+.clion
+.vs
+
+src.bin
+ols.json
