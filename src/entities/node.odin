@@ -11,7 +11,7 @@ Direction :: enum u8 {
 
 Node :: struct {
 	neighbors:              [4]^Node,
-	position_x, position_y: i32,
+	position: LinAlg.Vector2f32,
 	index:                  u32,
 }
 
@@ -45,10 +45,10 @@ prepare_nodes_test :: proc() -> [7]^Node{
     return [7]^Node{nodeA, nodeB, nodeC, nodeD, nodeE, nodeF, nodeG}
 }
 
-new_node :: proc (position_x, position_y: i32, index: u32) -> ^Node {
+new_node :: proc (position_x, position_y: f32, index: u32) -> ^Node {
     node: ^Node = new(Node)
-    node.position_x = position_x
-    node.position_y = position_y
+    node.position.x = position_x
+    node.position.y = position_y
     node.neighbors = {}
 
     node.index = index

@@ -8,16 +8,16 @@ import SDL "vendor:sdl2"
 App :: struct {
 	perf_frequency: f64,
 	renderer:       ^SDL.Renderer,
+	window:         ^SDL.Window,
 }
 
 app := App{}
 
-main :: proc() {
 
-
+init :: proc() {
 	assert(SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK) == 0, SDL.GetErrorString())
 
-	window := SDL.CreateWindow(
+	app.window = SDL.CreateWindow(
 		"PacMan",
 		SDL.WINDOWPOS_CENTERED,
 		SDL.WINDOWPOS_CENTERED,
@@ -26,24 +26,27 @@ main :: proc() {
 		SDL.WINDOW_SHOWN,
 	)
 
-	assert(window != nil, SDL.GetErrorString())
+	assert(app.window != nil, SDL.GetErrorString())
 
-	app.renderer = SDL.CreateRenderer(window, -1, SDL.RENDERER_ACCELERATED | SDL.RENDERER_PRESENTVSYNC)
+	app.renderer = SDL.CreateRenderer(
+		app.window,
+		-1,
+		SDL.RENDERER_ACCELERATED | SDL.RENDERER_PRESENTVSYNC,
+	)
 
 	assert(app.renderer != nil, SDL.GetErrorString())
 
 	SDL.SetHint(SDL.HINT_RENDER_SCALE_QUALITY, "linear")
 	app.perf_frequency = f64(SDL.GetPerformanceFrequency())
 
-    fmt.println(u32(SDL.SCANCODE_RIGHT))
-    fmt.println(u32(SDL.SCANCODE_LEFT))
-    fmt.println(u32(SDL.SCANCODE_UP))
-    fmt.println(u32(SDL.SCANCODE_DOWN))
+}
 
-	time_start: f64 = 0
-	time_last: f64 = 0
+main :: proc() {
+
+	init()
+
+	time_start, time_last: f64 = 0, 0
 	timestep: f32 = 0
-
 
 	nodes: [7]^Ent.Node = Ent.prepare_nodes_test()
 
@@ -51,13 +54,19 @@ main :: proc() {
 	state: [^]u8
 	num_keys: i32
 
-	pacman: Ent.Pacman = Ent.init_pacman(f32(nodes[0].position_x), f32(nodes[0].position_y))
+	pacman: Ent.Pacman
+
+	pacman.position = nodes[0].position
+    pacman.current_node = nodes[0]
+	pacman.speed = 0.1
+	pacman.velocity = {0, 0}
 
 	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
 
+
 	game_loop: for {
-        
-        time_start = get_time()
+
+		time_start = get_time()
 
 		SDL.PollEvent(&event)
 
@@ -67,14 +76,13 @@ main :: proc() {
 			break game_loop
 
 		case SDL.EventType.KEYDOWN:
-            Ent.update_control(&pacman)
-            fmt.println(pacman)
-
-            player_rect.x = i32(pacman.position.x)
-            player_rect.y = i32(pacman.position.y)
+				Ent.update_control(&pacman)
 		}
 
-        Ent.update_pos(&pacman, timestep)
+		Ent.update_pos(&pacman, timestep)
+
+        player_rect.x = i32(pacman.position.x)
+        player_rect.y = i32(pacman.position.y)
 
 
 		SDL.RenderClear(app.renderer)
@@ -85,23 +93,23 @@ main :: proc() {
 
 		for n in nodes {
 
-			// SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
+			SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
 
 			for neighbor in n.neighbors {
 				if neighbor != nil {
 					SDL.RenderDrawLine(
 						app.renderer,
-						n.position_x,
-						n.position_y,
-						neighbor^.position_x,
-						neighbor^.position_y,
+						i32(n.position.x),
+						i32(n.position.y),
+						i32(neighbor^.position.x),
+						i32(neighbor^.position.y),
 					)
 				}
 			}
 
 			SDL.SetRenderDrawColor(app.renderer, 123, 211, 0, 255)
 
-			node_rect: SDL.Rect = {n.position_x, n.position_y, 16, 16}
+			node_rect: SDL.Rect = {i32(n.position.x), i32(n.position.y), 16, 16}
 			SDL.RenderFillRect(app.renderer, &node_rect)
 
 		}
@@ -111,17 +119,18 @@ main :: proc() {
 
 		SDL.RenderPresent(app.renderer)
 
-        time_last = get_time()
+		time_last = get_time()
 
-        timestep = f32(time_last - time_start)
+		timestep = f32(time_last - time_start)
 	}
 
 	SDL.DestroyRenderer(app.renderer)
-	SDL.DestroyWindow(window)
+	SDL.DestroyWindow(app.window)
+
 	SDL.Quit()
 
 }
 
 get_time :: proc() -> f64 {
-	return f64(SDL.GetPerformanceCounter()) * 1000 / f64(SDL.GetPerformanceFrequency())
+	return f64(SDL.GetPerformanceCounter()) * 1000 / f64(app.perf_frequency)
 }
