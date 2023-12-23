@@ -11,56 +11,91 @@ Pacman :: struct {
 	direction:    Direction,
 	speed:        f32,
 	current_node: ^Node,
-	next_node:    ^Node,
+	target_node:  ^Node,
 }
 
-update_control :: proc(pacman: ^Pacman) {
+velocity_map := map[Direction]linalg.Vector2f32 {
+	Direction.Right = linalg.Vector2f32{1.0, 0.0},
+	Direction.Left = linalg.Vector2f32{-1.0, 0.0},
+	Direction.Up = linalg.Vector2f32{0.0, -1.0},
+	Direction.Down = linalg.Vector2f32{0.0, 1.0},
+}
+
+update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 	assert(pacman.current_node != nil)
 
-	numkeys: i32 = 0
-	kb_array: [^]u8 = SDL.GetKeyboardState(&numkeys)
-
-    if linalg.vector_length2(pacman.velocity) > 0  { return }
-
-	// Retrieves a bools for the Direction keypad 0b0000 -> RIGHT, LEFT, DOWN, UP
-	kb_slice: []u8 = kb_array[SDL.SCANCODE_RIGHT:][:4]
-
+	new_direction: Direction
 
 	switch {
-	case bool(kb_slice[0]):
-		pacman.velocity = linalg.Vector2f32{1.0, 0.0} // Right
-		pacman.next_node = pacman.current_node.neighbors[Direction.Right]
-	case bool(kb_slice[1]):
-		pacman.velocity = linalg.Vector2f32{-1.0, 0.0} // Left
-		pacman.next_node = pacman.current_node.neighbors[Direction.Left]
-	case bool(kb_slice[2]):
-		pacman.velocity = linalg.Vector2f32{0.0, 1.0} // Down
-		pacman.next_node = pacman.current_node.neighbors[Direction.Down]
-	case bool(kb_slice[3]):
-		pacman.velocity = linalg.Vector2f32{0.0, -1.0} // Up
-		pacman.next_node = pacman.current_node.neighbors[Direction.Up]
+	case scancode == SDL.Scancode.RIGHT:
+		if (pacman.direction == Direction.Up || pacman.direction == Direction.Down) {
+			new_direction = pacman.direction
+            return
+		}
+
+		new_direction = Direction.Right
+	case scancode == SDL.Scancode.LEFT:
+		if (pacman.direction == Direction.Up || pacman.direction == Direction.Down) {
+			new_direction = pacman.direction
+            return
+		}
+
+		new_direction = Direction.Left
+	case scancode == SDL.Scancode.DOWN:
+		if (pacman.direction == Direction.Left || pacman.direction == Direction.Right) {
+			new_direction = pacman.direction
+            return
+		}
+
+		new_direction = Direction.Down
+	case scancode == SDL.Scancode.UP:
+		if (pacman.direction == Direction.Left || pacman.direction == Direction.Right) {
+			new_direction = pacman.direction
+            return
+		}
+
+		new_direction = Direction.Up
 	}
 
-	fmt.println(kb_slice)
+	new_velocity := velocity_map[new_direction]
+
+	length := linalg.vector_length2(new_velocity + pacman.velocity)
+
+	if linalg.equal_single(length, 0) {
+		temp := pacman.current_node
+		pacman.current_node = pacman.target_node
+		pacman.target_node = temp
+	} else {
+		pacman.target_node = pacman.current_node.neighbors[new_direction]
+	}
+
+	pacman.velocity = new_velocity
+	pacman.direction = new_direction
+
+
 }
 
 
 update_pos :: proc(pacman: ^Pacman, dt: f32) {
 
-	if pacman.next_node != nil {
+	if pacman.target_node != nil {
 
 		pacman.position += dt * pacman.velocity * pacman.speed
 
-		distance := linalg.vector_length2(linalg.abs(pacman.position - pacman.next_node.position))
+		distance := linalg.vector_length2(
+			linalg.abs(pacman.position - pacman.target_node.position),
+		)
 
 		if distance < 1.0 {
-			pacman.current_node = pacman.next_node
-			pacman.next_node = nil
+			pacman.current_node = pacman.target_node
+			pacman.target_node = nil
+			pacman.direction = Direction.Stop
+			pacman.velocity = {0, 0}
 		}
-        return 
+		return
 	}
 
-    pacman.velocity = {0, 0}
+	pacman.velocity = {0, 0}
 
 }

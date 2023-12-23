@@ -57,7 +57,7 @@ main :: proc() {
 	pacman: Ent.Pacman
 
 	pacman.position = nodes[0].position
-    pacman.current_node = nodes[0]
+	pacman.current_node = nodes[0]
 	pacman.speed = 0.1
 	pacman.velocity = {0, 0}
 
@@ -70,19 +70,21 @@ main :: proc() {
 
 		SDL.PollEvent(&event)
 
+
 		#partial switch event.type {
 
 		case SDL.EventType.QUIT:
 			break game_loop
 
 		case SDL.EventType.KEYDOWN:
-				Ent.update_control(&pacman)
+			fmt.println(event.key.keysym.scancode)
+			Ent.update_control(&pacman, event.key.keysym.scancode)
 		}
 
 		Ent.update_pos(&pacman, timestep)
 
-        player_rect.x = i32(pacman.position.x)
-        player_rect.y = i32(pacman.position.y)
+		player_rect.x = i32(pacman.position.x)
+		player_rect.y = i32(pacman.position.y)
 
 
 		SDL.RenderClear(app.renderer)
