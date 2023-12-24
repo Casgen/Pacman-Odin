@@ -3,7 +3,7 @@ package entities
 import LinAlg "core:math/linalg"
 
 Direction :: enum i8 {
-	Stop  = -1,
+	None  = -1,
 	Up    = 0,
 	Down  = 1,
 	Left  = 2,

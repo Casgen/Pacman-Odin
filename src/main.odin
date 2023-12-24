@@ -3,6 +3,7 @@ package main
 import Consts "constants"
 import "core:fmt"
 import Ent "entities"
+import Level "level"
 import SDL "vendor:sdl2"
 
 App :: struct {
@@ -45,10 +46,11 @@ main :: proc() {
 
 	init()
 
+	lvl_data, err := Level.parse_level("res/mazetest.txt")
+	level := Level.load_level(lvl_data)
+
 	time_start, time_last: f64 = 0, 0
 	timestep: f32 = 0
-
-	nodes: [7]^Ent.Node = Ent.prepare_nodes_test()
 
 	event: SDL.Event
 	state: [^]u8
@@ -56,10 +58,12 @@ main :: proc() {
 
 	pacman: Ent.Pacman
 
-	pacman.position = nodes[0].position
-	pacman.current_node = nodes[0]
+	pacman.position = level.nodes[0].position
+	pacman.current_node = level.nodes[0]
 	pacman.speed = 0.1
 	pacman.velocity = {0, 0}
+	pacman.target_node = nil
+	pacman.direction = Ent.Direction.None
 
 	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
 
@@ -77,7 +81,6 @@ main :: proc() {
 			break game_loop
 
 		case SDL.EventType.KEYDOWN:
-			fmt.println(event.key.keysym.scancode)
 			Ent.update_control(&pacman, event.key.keysym.scancode)
 		}
 
@@ -93,7 +96,7 @@ main :: proc() {
 		error: i32 = SDL.RenderFillRect(app.renderer, &player_rect)
 
 
-		for n in nodes {
+		for n in level.nodes {
 
 			SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
 
@@ -116,9 +119,28 @@ main :: proc() {
 
 		}
 
+		SDL.SetRenderDrawColor(app.renderer, 0, 121, 255, 255)
+		current_node_rect: SDL.Rect =  {
+			i32(pacman.current_node.position.x),
+			i32(pacman.current_node.position.y),
+			16,
+			16,
+		}
+		SDL.RenderFillRect(app.renderer, &current_node_rect)
+
+		if pacman.target_node != nil {
+			SDL.SetRenderDrawColor(app.renderer, 0, 0, 178, 255)
+			target_node_rect: SDL.Rect =  {
+				i32(pacman.target_node.position.x),
+				i32(pacman.target_node.position.y),
+				16,
+				16,
+			}
+			SDL.RenderFillRect(app.renderer, &target_node_rect)
+		}
+
 
 		SDL.SetRenderDrawColor(app.renderer, 0, 0, 0, 255)
-
 		SDL.RenderPresent(app.renderer)
 
 		time_last = get_time()
@@ -131,6 +153,7 @@ main :: proc() {
 
 	SDL.Quit()
 
+	Level.destroy_level(level)
 }
 
 get_time :: proc() -> f64 {

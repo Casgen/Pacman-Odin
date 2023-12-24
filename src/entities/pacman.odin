@@ -27,38 +27,36 @@ update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 	new_direction: Direction
 
-	switch {
-	case scancode == SDL.Scancode.RIGHT:
-		if (pacman.direction == Direction.Up || pacman.direction == Direction.Down) {
-			new_direction = pacman.direction
-            return
-		}
-
+	#partial switch scancode {
+	case SDL.Scancode.RIGHT:
 		new_direction = Direction.Right
-	case scancode == SDL.Scancode.LEFT:
-		if (pacman.direction == Direction.Up || pacman.direction == Direction.Down) {
-			new_direction = pacman.direction
-            return
-		}
-
+	case SDL.Scancode.LEFT:
 		new_direction = Direction.Left
-	case scancode == SDL.Scancode.DOWN:
-		if (pacman.direction == Direction.Left || pacman.direction == Direction.Right) {
-			new_direction = pacman.direction
-            return
-		}
-
+	case SDL.Scancode.DOWN:
 		new_direction = Direction.Down
-	case scancode == SDL.Scancode.UP:
-		if (pacman.direction == Direction.Left || pacman.direction == Direction.Right) {
-			new_direction = pacman.direction
-            return
-		}
-
+	case SDL.Scancode.UP:
 		new_direction = Direction.Up
+	case:
+		new_direction = Direction.None
+	}
+
+	if new_direction == Direction.None {
+		return
+	}
+
+
+	if pacman.direction == Direction.None {
+		update_target_node(pacman, new_direction)
+        return
 	}
 
 	new_velocity := velocity_map[new_direction]
+
+	if linalg.equal_single(linalg.dot(pacman.velocity, new_velocity), 0) &&
+	   pacman.direction != Direction.None {
+		return
+	}
+
 
 	length := linalg.vector_length2(new_velocity + pacman.velocity)
 
@@ -67,13 +65,23 @@ update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 		pacman.current_node = pacman.target_node
 		pacman.target_node = temp
 	} else {
-		pacman.target_node = pacman.current_node.neighbors[new_direction]
+		update_target_node(pacman, new_direction)
+        return
 	}
 
 	pacman.velocity = new_velocity
 	pacman.direction = new_direction
 
+}
 
+update_target_node :: proc(pacman: ^Pacman, direction: Direction) {
+	target_node := pacman.current_node.neighbors[direction]
+
+	if target_node != nil {
+		pacman.target_node = target_node
+		pacman.velocity = velocity_map[direction]
+		pacman.direction = direction
+	}
 }
 
 
@@ -89,13 +97,13 @@ update_pos :: proc(pacman: ^Pacman, dt: f32) {
 
 		if distance < 1.0 {
 			pacman.current_node = pacman.target_node
+			pacman.position = pacman.target_node.position
 			pacman.target_node = nil
-			pacman.direction = Direction.Stop
+			pacman.direction = Direction.None
 			pacman.velocity = {0, 0}
 		}
 		return
 	}
 
 	pacman.velocity = {0, 0}
-
 }
