@@ -5,6 +5,7 @@ import "core:fmt"
 import Ent "entities"
 import Level "level"
 import SDL "vendor:sdl2"
+import LibC "core:c"
 
 App :: struct {
 	perf_frequency: f64,
@@ -47,6 +48,8 @@ main :: proc() {
 	init()
 
 	lvl_data, err := Level.parse_level("res/mazetest.txt")
+    assert(err == Level.ParseError.None)
+
 	level := Level.load_level(lvl_data)
 
 	time_start, time_last: f64 = 0, 0

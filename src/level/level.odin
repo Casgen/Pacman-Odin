@@ -19,6 +19,7 @@ ObjectType :: enum u8 {
 	Block       = 0,
 	Node        = 1,
 	Empty_Space = 2,
+	Ghost_Gate  = 3,
 }
 
 
@@ -33,9 +34,10 @@ load_level :: proc(lvl_data: LevelData) -> ^Level {
 
 		for col in 0 ..< lvl_data.col_count {
 
-			byte: ObjectType = ObjectType(lvl_data.data[col + lvl_data.col_count * row])
+			obj_type: ObjectType = ObjectType(lvl_data.data[col + lvl_data.col_count * row])
 
-			if ObjectType.Node == byte {
+			#partial switch obj_type {
+			case ObjectType.Node:
 				key: string = fmt.aprintf("%d|%d", row, col)
 
 				new_node: ^Ent.Node = new(Ent.Node)
@@ -46,16 +48,16 @@ load_level :: proc(lvl_data: LevelData) -> ^Level {
 
 				node_map[key] = new_node
 				append(&row_nodes, new_node)
+			case ObjectType.Block:
+				if len(row_nodes) > 0 {
+					connect_nodes(row_nodes, false)
+					clear(&row_nodes)
+				}
 			}
 
-
 		}
 
-		for i in 0 ..< (len(row_nodes) - 1) {
-			row_nodes[i].neighbors[Ent.Direction.Right] = row_nodes[i + 1]
-			row_nodes[i + 1].neighbors[Ent.Direction.Left] = row_nodes[i]
-		}
-
+		connect_nodes(row_nodes, false)
 		clear(&row_nodes)
 	}
 
@@ -66,30 +68,27 @@ load_level :: proc(lvl_data: LevelData) -> ^Level {
 
 		for row in 0 ..< lvl_data.row_count {
 
-			byte: ObjectType = ObjectType(lvl_data.data[col + lvl_data.col_count * row])
+			obj_type: ObjectType = ObjectType(lvl_data.data[col + lvl_data.col_count * row])
 
-			if ObjectType.Node == byte {
+			#partial switch obj_type {
+			case ObjectType.Node:
 				key: string = fmt.aprintf("%d|%d", row, col)
-
-				new_node: ^Ent.Node = new(Ent.Node)
-				new_node.position =  {
-					f32(col * int(Consts.TILE_WIDTH)),
-					f32(row * int(Consts.TILE_HEIGHT)),
+				found_node := node_map[key]
+				append(&col_nodes, found_node)
+			case ObjectType.Block:
+				if len(col_nodes) > 0 {
+					connect_nodes(col_nodes, true)
+					clear(&col_nodes)
 				}
 
-				append(&col_nodes, node_map[key])
 			}
 
 
 		}
 
-		for i in 0 ..< (len(col_nodes) - 1) {
-			col_nodes[i].neighbors[Ent.Direction.Down] = col_nodes[i + 1]
-			col_nodes[i + 1].neighbors[Ent.Direction.Up] = col_nodes[i]
-		}
-
+		connect_nodes(col_nodes, true)
 		clear(&col_nodes)
-	}   
+	}
 
 	level: ^Level = new(Level)
 	reserve(&level.nodes, len(node_map))
@@ -102,6 +101,23 @@ load_level :: proc(lvl_data: LevelData) -> ^Level {
 }
 
 destroy_level :: proc(level: ^Level) {
-    delete(level.nodes)
-    free(level)
+	delete(level.nodes)
+	free(level)
+}
+
+connect_nodes :: proc(nodes: [dynamic]^Ent.Node, connect_in_col: bool) {
+
+	if connect_in_col {
+		for i in 0 ..< (len(nodes) - 1) {
+			nodes[i].neighbors[Ent.Direction.Down] = nodes[i + 1]
+			nodes[i + 1].neighbors[Ent.Direction.Up] = nodes[i]
+		}
+
+		return
+	}
+
+	for i in 0 ..< (len(nodes) - 1) {
+		nodes[i].neighbors[Ent.Direction.Right] = nodes[i + 1]
+		nodes[i + 1].neighbors[Ent.Direction.Left] = nodes[i]
+	}
 }
