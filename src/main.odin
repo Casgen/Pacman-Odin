@@ -64,6 +64,7 @@ main :: proc() {
 	pacman.position = level.nodes[0].position
 	pacman.current_node = level.nodes[0]
 	pacman.speed = 0.1
+    pacman.collision_radius = 5
 	pacman.velocity = {0, 0}
 	pacman.target_node = nil
 	pacman.direction = Ent.Direction.None
@@ -72,9 +73,8 @@ main :: proc() {
 
 		time_start = get_time()
 
+        // Event handling
 		SDL.PollEvent(&event)
-
-
 		#partial switch event.type {
 
 		case SDL.EventType.QUIT:
@@ -84,8 +84,15 @@ main :: proc() {
 			Ent.update_control(&pacman, event.key.keysym.scancode)
 		}
 
+        // Game Logic
 		Ent.update_pos(&pacman, timestep)
+        eaten_pellet, index := Ent.try_eat_pellets(&pacman, &level.pellets)
 
+        if eaten_pellet != nil {
+            ordered_remove(&level.pellets, index)
+        }
+
+        // Rendering
 		SDL.RenderClear(app.renderer)
 
 		render_player(&pacman)
@@ -95,8 +102,6 @@ main :: proc() {
 		}
 
 		render_node(pacman.current_node, {0, 121, 255}, false)
-
-
 		if pacman.target_node != nil {
 			render_node(pacman.target_node, {244, 0, 178}, false)
 		}
@@ -171,3 +176,4 @@ render_node :: proc(node: ^Ent.Node, color: [3]u8, render_lines: bool) {
 	SDL.SetRenderDrawColor(app.renderer, 123, 211, 0, 255)
 
 }
+

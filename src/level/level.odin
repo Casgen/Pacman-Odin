@@ -106,26 +106,24 @@ parse_level :: proc(lvl_data: LevelData) -> ^Level {
 
 			obj := lvl_data.data[col + lvl_data.col_count * row]
             position: linalg.Vector2f32 = {f32(col * int(Consts.TILE_WIDTH)), f32(row * int(Consts.TILE_HEIGHT))}
+			key: string = fmt.aprintf("%d|%d", row, col)
 
 			switch obj {
             case 'n':
-				key: string = fmt.aprintf("%d|%d", row, col)
 				found_node := node_map[key]
 				append(&col_nodes, found_node)
 			case '+':
-				key: string = fmt.aprintf("%d|%d", row, col)
 				found_node := node_map[key]
 				append(&col_nodes, found_node)
                 fallthrough
             case '.':
-                append(&pellets, Ent.Pellet{false, position, 0.2, 50, Consts.PELLET_RADIUS, 0})
+                append(&pellets, Ent.Pellet{position, 0.2, 50, Consts.PELLET_RADIUS, 0, false})
 			case 'P':
-				key: string = fmt.aprintf("%d|%d", row, col)
 				found_node := node_map[key]
 				append(&col_nodes, found_node)
                 fallthrough
             case 'p':
-                append(&pellets, Ent.Pellet{false, position, 0.2, 50, Consts.POWER_PELLET_RADIUS, 10})
+                append(&pellets, Ent.Pellet{position, 0.2, 50, Consts.POWER_PELLET_RADIUS, 10, true})
 			case 'X':
 				if len(col_nodes) > 0 {
 					connect_nodes(col_nodes, true)
