@@ -96,12 +96,22 @@ update_pos :: proc(pacman: ^Pacman, dt: f32) {
 		)
 
 		if distance < 1.0 {
+
+            if pacman.target_node.is_portal {
+			    pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
+                pacman.target_node = pacman.current_node.neighbors[pacman.direction]
+                pacman.position = pacman.current_node.position
+
+                return
+            }
+
 			pacman.current_node = pacman.target_node
 			pacman.position = pacman.target_node.position
 			pacman.target_node = nil
 			pacman.direction = Direction.None
 			pacman.velocity = {0, 0}
 		}
+
 		return
 	}
 

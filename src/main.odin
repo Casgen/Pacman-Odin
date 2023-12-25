@@ -1,11 +1,11 @@
 package main
 
 import Consts "constants"
+import LibC "core:c"
 import "core:fmt"
 import Ent "entities"
 import Level "level"
 import SDL "vendor:sdl2"
-import LibC "core:c"
 
 App :: struct {
 	perf_frequency: f64,
@@ -47,10 +47,10 @@ main :: proc() {
 
 	init()
 
-	lvl_data, err := Level.parse_level("res/mazetest.txt")
-    assert(err == Level.ParseError.None)
+	lvl_data, err := Level.read_level("res/mazetest.txt")
+	assert(err == Level.ParseError.None)
 
-	level := Level.load_level(lvl_data)
+	level := Level.parse_level(lvl_data)
 
 	time_start, time_last: f64 = 0, 0
 	timestep: f32 = 0
@@ -67,9 +67,6 @@ main :: proc() {
 	pacman.velocity = {0, 0}
 	pacman.target_node = nil
 	pacman.direction = Ent.Direction.None
-
-	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
-
 
 	game_loop: for {
 
@@ -89,58 +86,22 @@ main :: proc() {
 
 		Ent.update_pos(&pacman, timestep)
 
-		player_rect.x = i32(pacman.position.x)
-		player_rect.y = i32(pacman.position.y)
-
-
 		SDL.RenderClear(app.renderer)
 
-		SDL.SetRenderDrawColor(app.renderer, 255, 0, 0, 255)
-		error: i32 = SDL.RenderFillRect(app.renderer, &player_rect)
+		render_player(&pacman)
 
-
-		for n in level.nodes {
-
-			SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
-
-			for neighbor in n.neighbors {
-				if neighbor != nil {
-					SDL.RenderDrawLine(
-						app.renderer,
-						i32(n.position.x),
-						i32(n.position.y),
-						i32(neighbor^.position.x),
-						i32(neighbor^.position.y),
-					)
-				}
-			}
-
-			SDL.SetRenderDrawColor(app.renderer, 123, 211, 0, 255)
-
-			node_rect: SDL.Rect = {i32(n.position.x), i32(n.position.y), 16, 16}
-			SDL.RenderFillRect(app.renderer, &node_rect)
-
+		for node in level.nodes {
+			render_node(node, {255, 0, 0}, true)
 		}
 
-		SDL.SetRenderDrawColor(app.renderer, 0, 121, 255, 255)
-		current_node_rect: SDL.Rect =  {
-			i32(pacman.current_node.position.x),
-			i32(pacman.current_node.position.y),
-			16,
-			16,
-		}
-		SDL.RenderFillRect(app.renderer, &current_node_rect)
+		render_node(pacman.current_node, {0, 121, 255}, false)
+
 
 		if pacman.target_node != nil {
-			SDL.SetRenderDrawColor(app.renderer, 0, 0, 178, 255)
-			target_node_rect: SDL.Rect =  {
-				i32(pacman.target_node.position.x),
-				i32(pacman.target_node.position.y),
-				16,
-				16,
-			}
-			SDL.RenderFillRect(app.renderer, &target_node_rect)
+			render_node(pacman.target_node, {244, 0, 178}, false)
 		}
+
+		render_pellets(level.pellets)
 
 
 		SDL.SetRenderDrawColor(app.renderer, 0, 0, 0, 255)
@@ -161,4 +122,52 @@ main :: proc() {
 
 get_time :: proc() -> f64 {
 	return f64(SDL.GetPerformanceCounter()) * 1000 / f64(app.perf_frequency)
+}
+
+render_player :: proc(pacman: ^Ent.Pacman) {
+	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
+
+	SDL.SetRenderDrawColor(app.renderer, 255, 0, 0, 255)
+	error: i32 = SDL.RenderFillRect(app.renderer, &player_rect)
+}
+
+render_pellets :: proc(pellets: [dynamic]Ent.Pellet) {
+	for item in pellets {
+		SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
+		rect: SDL.FRect = {item.position.x, item.position.y, f32(item.radius), f32(item.radius)}
+
+		SDL.RenderFillRectF(app.renderer, &rect)
+	}
+}
+
+render_node :: proc(node: ^Ent.Node, color: [3]u8, render_lines: bool) {
+
+	SDL.SetRenderDrawColor(app.renderer, color[0], color[1], color[2], 255)
+
+	node_rect: SDL.Rect = {i32(node.position.x), i32(node.position.y), 16, 16}
+	SDL.RenderFillRect(app.renderer, &node_rect)
+
+	if !render_lines {
+		return
+	}
+
+	for neighbor in node.neighbors {
+		if neighbor != nil {
+
+			if node.is_portal && neighbor.is_portal {
+				continue
+			}
+
+			SDL.RenderDrawLine(
+				app.renderer,
+				i32(node.position.x),
+				i32(node.position.y),
+				i32(neighbor^.position.x),
+				i32(neighbor^.position.y),
+			)
+		}
+	}
+
+	SDL.SetRenderDrawColor(app.renderer, 123, 211, 0, 255)
+
 }
