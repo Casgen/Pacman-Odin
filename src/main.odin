@@ -3,7 +3,7 @@ package main
 import Consts "constants"
 import LibC "core:c"
 import "core:fmt"
-import Ent "entities"
+import "entities"
 import Level "level"
 import SDL "vendor:sdl2"
 
@@ -16,7 +16,7 @@ App :: struct {
 app := App{}
 
 
-init :: proc() {
+init_sdl :: proc() {
 	assert(SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK) == 0, SDL.GetErrorString())
 
 	app.window = SDL.CreateWindow(
@@ -45,7 +45,7 @@ init :: proc() {
 
 main :: proc() {
 
-	init()
+	init_sdl()
 
 	lvl_data, err := Level.read_level("res/mazetest.txt")
 	assert(err == Level.ParseError.None)
@@ -59,15 +59,9 @@ main :: proc() {
 	state: [^]u8
 	num_keys: i32
 
-	pacman: Ent.Pacman
+    pacman := create_player(level.nodes[0])
+    ghost := create_ghost(level.nodes[1])
 
-	pacman.position = level.nodes[0].position
-	pacman.current_node = level.nodes[0]
-	pacman.speed = 0.1
-    pacman.collision_radius = 5
-	pacman.velocity = {0, 0}
-	pacman.target_node = nil
-	pacman.direction = Ent.Direction.None
 
 	game_loop: for {
 
@@ -81,12 +75,13 @@ main :: proc() {
 			break game_loop
 
 		case SDL.EventType.KEYDOWN:
-			Ent.update_control(&pacman, event.key.keysym.scancode)
+			entities.update_control(&pacman, event.key.keysym.scancode)
 		}
 
         // Game Logic
-		Ent.update_pos(&pacman, timestep)
-        eaten_pellet, index := Ent.try_eat_pellets(&pacman, &level.pellets)
+        entities.update_ghost_ai(&ghost, timestep)
+		entities.update_pacman_pos(&pacman, timestep)
+        eaten_pellet, index := entities.try_eat_pellets(&pacman, &level.pellets)
 
         if eaten_pellet != nil {
             ordered_remove(&level.pellets, index)
@@ -95,6 +90,7 @@ main :: proc() {
         // Rendering
 		SDL.RenderClear(app.renderer)
 
+        render_ghost(&ghost)
 		render_player(&pacman)
 
 		for node in level.nodes {
@@ -129,14 +125,21 @@ get_time :: proc() -> f64 {
 	return f64(SDL.GetPerformanceCounter()) * 1000 / f64(app.perf_frequency)
 }
 
-render_player :: proc(pacman: ^Ent.Pacman) {
+render_ghost :: proc(ghost: ^entities.Ghost) {
+	rect: SDL.Rect = {i32(ghost.position.x), i32(ghost.position.y), 32, 32}
+
+	SDL.SetRenderDrawColor(app.renderer, ghost.color[0],ghost.color[1],ghost.color[2], 255)
+	error: i32 = SDL.RenderFillRect(app.renderer, &rect)
+}
+
+render_player :: proc(pacman: ^entities.Pacman) {
 	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
 
 	SDL.SetRenderDrawColor(app.renderer, 255, 0, 0, 255)
 	error: i32 = SDL.RenderFillRect(app.renderer, &player_rect)
 }
 
-render_pellets :: proc(pellets: [dynamic]Ent.Pellet) {
+render_pellets :: proc(pellets: [dynamic]entities.Pellet) {
 	for item in pellets {
 		SDL.SetRenderDrawColor(app.renderer, 255, 255, 0, 255)
 		rect: SDL.FRect = {item.position.x, item.position.y, f32(item.radius), f32(item.radius)}
@@ -145,7 +148,7 @@ render_pellets :: proc(pellets: [dynamic]Ent.Pellet) {
 	}
 }
 
-render_node :: proc(node: ^Ent.Node, color: [3]u8, render_lines: bool) {
+render_node :: proc(node: ^entities.Node, color: [3]u8, render_lines: bool) {
 
 	SDL.SetRenderDrawColor(app.renderer, color[0], color[1], color[2], 255)
 
@@ -177,3 +180,34 @@ render_node :: proc(node: ^Ent.Node, color: [3]u8, render_lines: bool) {
 
 }
 
+create_player :: proc(starting_node: ^entities.Node) -> entities.Pacman {
+
+	pacman: entities.Pacman
+
+    pacman.entity = entities.new_entity(entities.Pacman)
+	pacman.position = starting_node.position
+	pacman.current_node = starting_node
+	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
+    pacman.collision_radius = 5
+	pacman.velocity = {0, 0}
+	pacman.target_node = nil
+	pacman.direction = entities.Direction.None
+
+    return pacman
+}
+
+create_ghost :: proc(starting_node: ^entities.Node) -> entities.Ghost {
+	ghost: entities.Ghost
+
+    ghost.entity = entities.new_entity(entities.Ghost)
+	ghost.position = starting_node.position
+	ghost.current_node = starting_node
+	ghost.speed = 0.1 * f32(Consts.TILE_WIDTH / 16)
+    ghost.collision_radius = 5
+	ghost.velocity = {0, 0}
+	ghost.target_node = nil
+	ghost.direction = entities.Direction.None
+    ghost.color = {0xA9, 0xE1, 0x90}
+
+    return ghost
+}

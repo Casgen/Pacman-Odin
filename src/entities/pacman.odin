@@ -7,13 +7,7 @@ import SDL "vendor:sdl2"
 
 
 Pacman :: struct {
-	position:         linalg.Vector2f32,
-	velocity:         linalg.Vector2f32,
-	current_node:     ^Node,
-	target_node:      ^Node,
-	speed:            f32,
-	collision_radius: f32,
-	direction:        Direction,
+    using entity: ^Entity,
 	num_eaten:        u32,
 }
 
@@ -55,6 +49,7 @@ update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 	new_velocity := velocity_map[new_direction]
 
+    // This ensures that the player doesn't steer off from the path
 	if linalg.equal_single(linalg.dot(pacman.velocity, new_velocity), 0) &&
 	   pacman.direction != Direction.None {
 		return
@@ -88,46 +83,47 @@ update_target_node :: proc(pacman: ^Pacman, direction: Direction) {
 }
 
 
-update_pos :: proc(pacman: ^Pacman, dt: f32) {
+update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 
-	if pacman.target_node != nil {
-
-		pacman.position += dt * pacman.velocity * pacman.speed
-
-		distance := linalg.vector_length2(
-			linalg.abs(pacman.position - pacman.target_node.position),
-		)
-
-		if distance < 1.0 {
-
-			if pacman.target_node.is_portal {
-				pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
-				pacman.target_node = pacman.current_node.neighbors[pacman.direction]
-				pacman.position = pacman.current_node.position
-
-				return
-			}
-
-			pacman.current_node = pacman.target_node
-			pacman.position = pacman.target_node.position
-			pacman.target_node = nil
-			pacman.direction = Direction.None
-			pacman.velocity = {0, 0}
-		}
-
-		return
+	if pacman.target_node == nil {
+	    pacman.velocity = {0, 0}
+        return
 	}
 
-	pacman.velocity = {0, 0}
+    pacman.position += dt * pacman.velocity * pacman.speed
+
+    path_distance := linalg.vector_length2(pacman.current_node.position - pacman.target_node.position)
+    distance_to_node := linalg.vector_length2(pacman.current_node.position - pacman.position) 
+
+    if path_distance > distance_to_node {
+        return
+    }
+
+    if pacman.target_node.is_portal {
+        pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
+        pacman.target_node = pacman.current_node.neighbors[pacman.direction]
+        pacman.position = pacman.current_node.position
+
+        return
+    }
+
+    pacman.current_node = pacman.target_node
+    pacman.position = pacman.target_node.position
+    pacman.target_node = nil
+    pacman.direction = Direction.None
+    pacman.velocity = {0, 0}
+
+    return
+
 }
 
 
 try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet) -> (^Pellet, int) {
+
 	diff: linalg.Vector2f32
 
 	for i in 0 ..< len(pellets) {
-		diff = pacman.position - pellets[i].position
-		distance := (diff.x * diff.x) + (diff.y * diff.y)
+        distance := linalg.vector_length2(pacman.position - pellets[i].position)
 		r_distance :=
 			(pacman.collision_radius * pacman.collision_radius) +
 			(pellets[i].radius) * (pellets[i].radius)
