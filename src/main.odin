@@ -44,12 +44,11 @@ init_sdl :: proc() {
 }
 
 
-
 main :: proc() {
 
 	init_sdl()
 
-    level := Level.load_level("res/mazetest.txt")
+	level := Level.load_level("res/mazetest.txt")
 
 	time_start, time_last: f64 = 0, 0
 	timestep: f32 = 0
@@ -78,31 +77,33 @@ main :: proc() {
 		}
 
 		// Game Logic
+        ghost.goal = pacman.position
 		entities.update_ghost_ai(&ghost, timestep)
 		entities.update_pacman_pos(&pacman, timestep)
 		entities.try_eat_pellets(&pacman, &level.pellets, true)
 
 		// Rendering
-		SDL.RenderClear(app.renderer)
+		{
+			SDL.RenderClear(app.renderer)
 
-		entities.debug_render_ghost(app.renderer, &ghost)
-		entities.debug_render_player(app.renderer, &pacman)
+			entities.debug_render_ghost(app.renderer, &ghost)
+			entities.debug_render_player(app.renderer, &pacman)
 
-		for node in level.nodes {
-			entities.debug_render_node(app.renderer, node, {255, 0, 0}, true)
+			for node in level.nodes {
+				entities.debug_render_node(app.renderer, node, {255, 0, 0}, true)
+			}
+
+			entities.debug_render_node(app.renderer, pacman.current_node, {0, 121, 255}, false)
+			if pacman.target_node != nil {
+				entities.debug_render_node(app.renderer, pacman.target_node, {244, 0, 178}, false)
+			}
+
+			entities.render_pellets(app.renderer, level.pellets)
+
+
+			SDL.SetRenderDrawColor(app.renderer, 0, 0, 0, 255)
+			SDL.RenderPresent(app.renderer)
 		}
-
-		entities.debug_render_node(app.renderer, pacman.current_node, {0, 121, 255}, false)
-		if pacman.target_node != nil {
-			entities.debug_render_node(app.renderer, pacman.target_node, {244, 0, 178}, false)
-		}
-
-		entities.render_pellets(app.renderer, level.pellets)
-
-
-		SDL.SetRenderDrawColor(app.renderer, 0, 0, 0, 255)
-		SDL.RenderPresent(app.renderer)
-
 		time_last = get_time()
 
 		timestep = f32(time_last - time_start)

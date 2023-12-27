@@ -29,18 +29,20 @@ create_node :: proc(position_x, position_y: f32, is_portal: bool = false) -> ^No
 	return node
 }
 
-get_valid_directions :: proc(node: ^Node) -> [dynamic]Direction {
+get_valid_neighbors :: proc(node: ^Node) -> ([dynamic]Direction, [dynamic]^Node) {
 
 	valid_directions: [dynamic]Direction
+	valid_nodes: [dynamic]^Node
 
 	for target, index in node.neighbors {
 
 		if target != nil {
 			append(&valid_directions, Direction(index))
+			append(&valid_nodes, target)
 		}
 	}
 
-	return valid_directions
+	return valid_directions, valid_nodes
 }
 
 debug_render_node :: proc(renderer: ^SDL.Renderer, node: ^Node, color: [3]u8, render_lines: bool) {

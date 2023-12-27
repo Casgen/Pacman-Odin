@@ -3,6 +3,7 @@ package entities
 import Consts "../constants"
 import "core:math/linalg"
 import "core:math/rand"
+import "core:math"
 import SDL "vendor:sdl2"
 
 Ghost :: struct {
@@ -13,6 +14,9 @@ Ghost :: struct {
 
 
 create_ghost :: proc(starting_node: ^Node, goal: linalg.Vector2f32) -> Ghost {
+
+    assert(starting_node != nil)
+
 	ghost: Ghost
 
 	ghost.entity = new_entity(Ghost)
@@ -20,11 +24,26 @@ create_ghost :: proc(starting_node: ^Node, goal: linalg.Vector2f32) -> Ghost {
 	ghost.current_node = starting_node
 	ghost.speed = 0.1 * f32(Consts.TILE_WIDTH / 16)
 	ghost.collision_radius = 5
-	ghost.velocity = {0, 0}
 	ghost.target_node = nil
-	ghost.direction = Direction.None
 	ghost.color = {0xA9, 0xE1, 0x90}
 	ghost.goal = goal
+
+    valid_directions, valid_nodes := get_valid_neighbors(ghost.current_node)
+
+    min_distance: f32 = math.F32_MAX
+    closest_node_index: int
+
+    for node, i in valid_nodes {
+        distance := linalg.vector_length2(node.position - ghost.goal)
+        if distance < min_distance {
+            closest_node_index = i
+            min_distance = distance
+        }
+    }
+
+    ghost.target_node = valid_nodes[closest_node_index]
+    ghost.direction = valid_directions[closest_node_index]
+    ghost.velocity = velocity_map[valid_directions[closest_node_index]]
 
 	return ghost
 }
@@ -32,24 +51,9 @@ create_ghost :: proc(starting_node: ^Node, goal: linalg.Vector2f32) -> Ghost {
 
 update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
 
-	if ghost.target_node == nil {
-		assert(ghost.current_node != nil)
-
-		valid_directions := get_valid_directions(ghost.current_node)
-		random_dir := Direction(rand.float32() * f32(len(valid_directions)))
-
-		next_node := ghost.current_node.neighbors[random_dir]
-
-		ghost.position = ghost.current_node.position
-		ghost.target_node = next_node
-		ghost.direction = random_dir
-		ghost.velocity = velocity_map[random_dir]
-
-		return
-	}
+    assert(ghost.target_node != nil)
 
 	ghost.position += dt * ghost.velocity * ghost.speed
-
 
 	if !has_overshot_target(ghost) {
 		return
@@ -63,26 +67,39 @@ update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
 	}
 
 	// Find new direction
-	valid_directions := get_valid_directions(ghost.target_node)
+	// valid_directions, _ := get_valid_neighbors(ghost.target_node)
+	//
+	// random_val := u32(rand.float32() * f32(len(valid_directions)))
+	// random_dir := valid_directions[random_val]
+	//
+	// next_node := ghost.target_node.neighbors[random_dir]
+	//
+	// if next_node == ghost.current_node && len(valid_directions) > 1 {
+	//
+	// 	// offset the index by 1 with respect to the array bounds
+	// 	random_dir = valid_directions[(random_val + 1) % u32(len(valid_directions))]
+	// 	next_node = ghost.target_node.neighbors[random_dir]
+	// }
 
-	random_val := u32(rand.float32() * f32(len(valid_directions)))
-	random_dir := valid_directions[random_val]
+    valid_directions, valid_nodes := get_valid_neighbors(ghost.target_node)
 
-	next_node := ghost.target_node.neighbors[random_dir]
+    min_distance: f32 = math.F32_MAX
+    closest_node_index: int
 
-	if next_node == ghost.current_node && len(valid_directions) > 1 {
-
-		// offset the index by 1 with respect to the array bounds
-		random_dir = valid_directions[(random_val + 1) % u32(len(valid_directions))]
-		next_node = ghost.target_node.neighbors[random_dir]
-	}
-
+    for node, i in valid_nodes {
+        
+        distance := linalg.vector_length2(node.position - ghost.goal)
+        if distance < min_distance {
+            closest_node_index = i
+            min_distance = distance
+        }
+    }
 
 	ghost.position = ghost.target_node.position
 	ghost.current_node = ghost.target_node
-	ghost.target_node = next_node
-	ghost.direction = random_dir
-	ghost.velocity = velocity_map[random_dir]
+	ghost.target_node = valid_nodes[closest_node_index]
+	ghost.direction = valid_directions[closest_node_index]
+	ghost.velocity = velocity_map[valid_directions[closest_node_index]]
 
 	return
 }
