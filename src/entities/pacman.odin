@@ -4,6 +4,7 @@ import "../constants"
 import "core:fmt"
 import "core:math/linalg"
 import SDL "vendor:sdl2"
+import Consts "../constants"
 
 
 Pacman :: struct {
@@ -92,10 +93,7 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 
     pacman.position += dt * pacman.velocity * pacman.speed
 
-    path_distance := linalg.vector_length2(pacman.current_node.position - pacman.target_node.position)
-    distance_to_node := linalg.vector_length2(pacman.current_node.position - pacman.position) 
-
-    if path_distance > distance_to_node {
+    if !has_overshot_target(pacman) {
         return
     }
 
@@ -118,7 +116,7 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 }
 
 
-try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet) -> (^Pellet, int) {
+try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet, remove_from_array: bool = false) -> (^Pellet, int) {
 
 	diff: linalg.Vector2f32
 
@@ -129,10 +127,37 @@ try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet) -> (^Pellet,
 			(pellets[i].radius) * (pellets[i].radius)
 
 		if distance < r_distance {
+            defer if remove_from_array {
+                ordered_remove(pellets, i)
+            }
+
 			return &pellets[i], i
 		}
 	}
 
 	return nil, -1
 
+}
+
+debug_render_player :: proc(renderer: ^SDL.Renderer, pacman: ^Pacman) {
+	player_rect: SDL.Rect = {i32(pacman.position.x), i32(pacman.position.y), 32, 32}
+
+	SDL.SetRenderDrawColor(renderer, 255, 0, 0, 255)
+	error: i32 = SDL.RenderFillRect(renderer, &player_rect)
+}
+
+create_pacman :: proc(starting_node: ^Node) -> Pacman {
+
+	pacman: Pacman
+
+    pacman.entity = new_entity(Pacman)
+	pacman.position = starting_node.position
+	pacman.current_node = starting_node
+	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
+    pacman.collision_radius = 5
+	pacman.velocity = {0, 0}
+	pacman.target_node = nil
+	pacman.direction = Direction.None
+
+    return pacman
 }

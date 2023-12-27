@@ -19,3 +19,10 @@ new_entity :: proc($T: typeid) -> ^Entity {
     return t
 }
 
+has_overshot_target :: proc(entity: ^Entity) -> bool {
+    path_distance := linalg.vector_length2(entity.current_node.position - entity.target_node.position)
+    distance_to_node := linalg.vector_length2(entity.current_node.position - entity.position) 
+
+    return path_distance <= distance_to_node
+}
+

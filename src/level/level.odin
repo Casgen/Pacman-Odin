@@ -6,6 +6,7 @@ import "core:fmt"
 import linalg "core:math/linalg"
 import "core:os"
 import "core:strings"
+import "core:thread"
 
 Level :: struct {
 	nodes:   [dynamic]^Ent.Node,
@@ -41,15 +42,19 @@ char_map := map[u8]ObjectType {
 };
 
 
+load_level :: proc(filename: string) -> ^Level {
+	lvl_data, err := read_level(filename)
+	assert(err == ParseError.None)
 
+	return parse_level(&lvl_data)
+}
 
-parse_level :: proc(lvl_data: LevelData) -> ^Level {
+// Extracts the nodes and connects them horizontally
+first_parse_stage :: proc(lvl_data: ^LevelData) -> map[string]^Ent.Node {
 
 	node_map: map[string]^Ent.Node
 	portal_node_map: map[u8]^Ent.Node
-    pellets: [dynamic]Ent.Pellet
 
-	// Process all Nodes in rows
 	for row in 0 ..< lvl_data.row_count {
 
 		row_nodes: [dynamic]^Ent.Node = {}
@@ -97,7 +102,14 @@ parse_level :: proc(lvl_data: LevelData) -> ^Level {
 		connect_nodes(row_nodes, false)
 	}
 
-	// Process all Nodes in columns and create pellets
+    return node_map
+}
+
+// Connects the given nodes vertically and creates pellets
+second_parse_stage :: proc(lvl_data: ^LevelData, node_map: ^map[string]^Ent.Node) -> [dynamic]Ent.Pellet {
+
+    pellets: [dynamic]Ent.Pellet
+
 	for col in 0 ..< lvl_data.col_count {
 
 		col_nodes: [dynamic]^Ent.Node = {}
@@ -138,6 +150,15 @@ parse_level :: proc(lvl_data: LevelData) -> ^Level {
 		connect_nodes(col_nodes, true)
 		clear(&col_nodes)
 	}
+
+    return pellets
+}
+
+
+parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
+
+    node_map := first_parse_stage(lvl_data)
+    pellets := second_parse_stage(lvl_data, &node_map)
 
 	level: ^Level = new(Level)
 	reserve(&level.nodes, len(node_map))

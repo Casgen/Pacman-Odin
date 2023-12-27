@@ -1,6 +1,7 @@
 package entities
 
 import LinAlg "core:math/linalg"
+import SDL "vendor:sdl2"
 
 Direction :: enum i8 {
 	None   = -1,
@@ -8,13 +9,13 @@ Direction :: enum i8 {
 	Down   = 1,
 	Left   = 2,
 	Right  = 3,
-    Portal = 4
+	Portal = 4,
 }
 
 Node :: struct {
 	neighbors: [5]^Node,
 	position:  LinAlg.Vector2f32,
-    is_portal: bool,
+	is_portal: bool,
 }
 
 create_node :: proc(position_x, position_y: f32, is_portal: bool = false) -> ^Node {
@@ -22,7 +23,7 @@ create_node :: proc(position_x, position_y: f32, is_portal: bool = false) -> ^No
 
 	node.position.x = position_x
 	node.position.y = position_y
-    node.is_portal = is_portal
+	node.is_portal = is_portal
 	node.neighbors = {}
 
 	return node
@@ -30,14 +31,46 @@ create_node :: proc(position_x, position_y: f32, is_portal: bool = false) -> ^No
 
 get_valid_directions :: proc(node: ^Node) -> [dynamic]Direction {
 
-    valid_directions: [dynamic]Direction
+	valid_directions: [dynamic]Direction
 
-    for target, index in node.neighbors {
-        
-        if target != nil {
-            append(&valid_directions, Direction(index))
-        }
-    }
+	for target, index in node.neighbors {
 
-    return valid_directions
+		if target != nil {
+			append(&valid_directions, Direction(index))
+		}
+	}
+
+	return valid_directions
+}
+
+debug_render_node :: proc(renderer: ^SDL.Renderer, node: ^Node, color: [3]u8, render_lines: bool) {
+
+	SDL.SetRenderDrawColor(renderer, color[0], color[1], color[2], 255)
+
+	node_rect: SDL.Rect = {i32(node.position.x), i32(node.position.y), 16, 16}
+	SDL.RenderFillRect(renderer, &node_rect)
+
+	if !render_lines {
+		return
+	}
+
+	for neighbor in node.neighbors {
+		if neighbor != nil {
+
+			if node.is_portal && neighbor.is_portal {
+				continue
+			}
+
+			SDL.RenderDrawLine(
+				renderer,
+				i32(node.position.x),
+				i32(node.position.y),
+				i32(neighbor^.position.x),
+				i32(neighbor^.position.y),
+			)
+		}
+	}
+
+	SDL.SetRenderDrawColor(renderer, 123, 211, 0, 255)
+
 }
