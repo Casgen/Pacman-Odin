@@ -1,21 +1,31 @@
 package entities
 
 import Consts "../constants"
+import "core:math"
 import "core:math/linalg"
 import "core:math/rand"
-import "core:math"
 import SDL "vendor:sdl2"
+import "core:fmt"
+
+GhostState :: enum {
+	Scatter,
+	Chase,
+	Freight,
+	Spawn,
+}
 
 Ghost :: struct {
-	using entity: ^Entity,
-	color:        [3]u8,
-	goal:         linalg.Vector2f32,
+	using entity:       ^Entity,
+	color:              [3]u8,
+	goal, scatter_goal: linalg.Vector2f32,
+	state:              GhostState,
+	timer:              f32,
 }
 
 
-create_ghost :: proc(starting_node: ^Node, goal: linalg.Vector2f32) -> Ghost {
+create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> Ghost {
 
-    assert(starting_node != nil)
+	assert(starting_node != nil)
 
 	ghost: Ghost
 
@@ -26,36 +36,40 @@ create_ghost :: proc(starting_node: ^Node, goal: linalg.Vector2f32) -> Ghost {
 	ghost.collision_radius = 5
 	ghost.target_node = nil
 	ghost.color = {0xA9, 0xE1, 0x90}
-	ghost.goal = goal
+	ghost.goal = {0, 0}
+	ghost.scatter_goal = scatter_goal
+	ghost.state = GhostState.Scatter
+    ghost.timer = 7000
 
-    valid_directions, valid_nodes := get_valid_neighbors(ghost.current_node)
+	valid_directions, valid_nodes := get_valid_neighbors(ghost.current_node)
 
-    min_distance: f32 = math.F32_MAX
-    closest_node_index: int
+	min_distance: f32 = math.F32_MAX
+	closest_node_index: int
 
-    for node, i in valid_nodes {
-        distance := linalg.vector_length2(node.position - ghost.goal)
-        if distance < min_distance {
-            closest_node_index = i
-            min_distance = distance
-        }
-    }
+	for node, i in valid_nodes {
+		distance := linalg.vector_length2(node.position - scatter_goal)
+		if distance < min_distance {
+			closest_node_index = i
+			min_distance = distance
+		}
+	}
 
-    ghost.target_node = valid_nodes[closest_node_index]
-    ghost.direction = valid_directions[closest_node_index]
-    ghost.velocity = velocity_map[valid_directions[closest_node_index]]
+	ghost.target_node = valid_nodes[closest_node_index]
+	ghost.direction = valid_directions[closest_node_index]
+	ghost.velocity = velocity_map[valid_directions[closest_node_index]]
 
 	return ghost
 }
 
 
-update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
+update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 
-    assert(ghost.target_node != nil)
+	assert(ghost.target_node != nil)
 
 	ghost.position += dt * ghost.velocity * ghost.speed
 
 	if !has_overshot_target(ghost) {
+		advance_timer(ghost, dt)
 		return
 	}
 
@@ -63,10 +77,11 @@ update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
 		ghost.current_node = ghost.target_node.neighbors[Direction.Portal]
 		ghost.target_node = ghost.current_node.neighbors[ghost.direction]
 		ghost.position = ghost.current_node.position
+		advance_timer(ghost, dt)
 		return
 	}
 
-	// Find new direction
+	// Find new random direction
 	// valid_directions, _ := get_valid_neighbors(ghost.target_node)
 	//
 	// random_val := u32(rand.float32() * f32(len(valid_directions)))
@@ -81,19 +96,27 @@ update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
 	// 	next_node = ghost.target_node.neighbors[random_dir]
 	// }
 
-    valid_directions, valid_nodes := get_valid_neighbors(ghost.target_node)
+	#partial switch ghost.state {
+	case .Scatter:
+		ghost.goal = ghost.scatter_goal
+	case .Chase:
+		ghost.goal = goal
 
-    min_distance: f32 = math.F32_MAX
-    closest_node_index: int
+	}
 
-    for node, i in valid_nodes {
-        
-        distance := linalg.vector_length2(node.position - ghost.goal)
-        if distance < min_distance {
-            closest_node_index = i
-            min_distance = distance
-        }
-    }
+	valid_directions, valid_nodes := get_valid_neighbors(ghost.target_node)
+
+	min_distance: f32 = math.F32_MAX
+	closest_node_index: int
+
+	for node, i in valid_nodes {
+
+		distance := linalg.vector_length2(node.position - ghost.goal)
+		if distance < min_distance {
+			closest_node_index = i
+			min_distance = distance
+		}
+	}
 
 	ghost.position = ghost.target_node.position
 	ghost.current_node = ghost.target_node
@@ -101,7 +124,37 @@ update_ghost_ai :: proc(ghost: ^Ghost, dt: f32) {
 	ghost.direction = valid_directions[closest_node_index]
 	ghost.velocity = velocity_map[valid_directions[closest_node_index]]
 
+	advance_timer(ghost, dt)
+
 	return
+}
+
+advance_timer :: proc(ghost: ^Ghost, dt: f32) {
+	ghost.timer -= dt
+
+	if ghost.timer > 0 {
+		return
+	}
+
+	#partial switch ghost.state {
+	case .Scatter:
+		set_chase_mode(ghost)
+	case .Chase:
+		set_scatter_mode(ghost)
+	}
+}
+
+// Timers are defined in millis
+set_chase_mode :: proc(ghost: ^Ghost, timer: f32 = 20000) {
+	ghost.state = GhostState.Chase
+	ghost.timer = timer
+    fmt.println(ghost.state)
+}
+
+set_scatter_mode :: proc(ghost: ^Ghost, timer: f32 = 7000) {
+	ghost.state = GhostState.Scatter
+	ghost.timer = timer
+    fmt.println(ghost.state)
 }
 
 debug_render_ghost :: proc(renderer: ^SDL.Renderer, ghost: ^Ghost) {

@@ -58,7 +58,7 @@ main :: proc() {
 	num_keys: i32
 
 	pacman := entities.create_pacman(level.nodes[0])
-	ghost := entities.create_ghost(level.nodes[1], pacman.position)
+	ghost := entities.create_ghost(level.nodes[1], {0,0})
 
 
 	game_loop: for {
@@ -77,8 +77,7 @@ main :: proc() {
 		}
 
 		// Game Logic
-        ghost.goal = pacman.position
-		entities.update_ghost_ai(&ghost, timestep)
+		entities.update_ghost_ai(&ghost, pacman.position, timestep)
 		entities.update_pacman_pos(&pacman, timestep)
 		entities.try_eat_pellets(&pacman, &level.pellets, true)
 
