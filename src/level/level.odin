@@ -9,15 +9,19 @@ import "core:mem/virtual"
 import "core:os"
 import "core:strings"
 import "core:thread"
+import GL "vendor:OpenGL"
+import "../gfx"
 
 NODE_BUFFER_SIZE_BYTES :: size_of(Ent.Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Ent.Pellet) * 1024
 
 Level :: struct {
-	node_arena:  virtual.Arena,
-	node_buffer: []u8,
-	nodes:       [dynamic]^Ent.Node,
-	pellets:     [dynamic]Ent.Pellet,
+	node_arena:         virtual.Arena,
+	node_buffer:        []u8,
+	nodes:              [dynamic]^Ent.Node,
+	pellets:            [dynamic]Ent.Pellet,
+    pellets_vao_id:     u32,
+    node_vao_id:        u32,
 }
 
 LevelData :: struct {
@@ -46,7 +50,7 @@ char_map := map[u8]ObjectType {
 	'+' = ObjectType.Node,
 	'.' = ObjectType.Empty_Space,
 	'=' = ObjectType.Ghost_Gate,
-}
+};
 
 
 load_level :: proc(filename: string) -> ^Level {
@@ -73,8 +77,8 @@ first_parse_stage :: proc(
 
 			obj := lvl_data.data[col + lvl_data.col_count * row]
 			position: linalg.Vector2f32 =  {
-				f32(col * int(Consts.TILE_WIDTH)),
-				f32(row * int(Consts.TILE_HEIGHT)),
+				f32(col) * Consts.TILE_WIDTH - 1,
+			    (2 - f32(row) * Consts.TILE_HEIGHT) - 1,
 			}
 
 			switch obj {
@@ -134,8 +138,8 @@ second_parse_stage :: proc(
 
 			obj := lvl_data.data[col + lvl_data.col_count * row]
 			position: linalg.Vector2f32 =  {
-				f32(col * int(Consts.TILE_WIDTH)),
-				f32(row * int(Consts.TILE_HEIGHT)),
+				f32(col) * Consts.TILE_WIDTH - 1,
+			    (2 - f32(row) * Consts.TILE_HEIGHT) - 1,
 			}
 			key: string = fmt.aprintf("%d|%d", row, col)
 
@@ -204,6 +208,8 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	level.pellets = pellets
 
+    create_debug_gl_points(level)
+
 	return level
 }
 
@@ -235,6 +241,59 @@ connect_nodes :: proc(nodes: [dynamic]^Ent.Node, connect_in_col: bool) {
 	}
 }
 
+create_debug_gl_points :: proc(level: ^Level) {
+
+    pellet_vertices: [dynamic]f32
+    node_vertices: [dynamic]f32
+
+    reserve(&pellet_vertices, len(level.pellets) * 6)
+    reserve(&node_vertices,  len(level.nodes) * 6)
+
+    for &pellet in level.pellets {
+        append(&pellet_vertices, pellet.position.x, pellet.position.y, 1.0, 0.7, 0.0, 1.0)
+    }
+
+    for &node in level.nodes {
+        append(&node_vertices, node.position.x, node.position.y, 1.0, 0.0, 0.0, 1.0)
+    }
+
+    vao_ids := [2]u32{0,0}
+    GL.GenVertexArrays(2, raw_data(&vao_ids))
+
+    vbo_ids := [2]u32{0,0}
+    GL.GenBuffers(2,raw_data(&vbo_ids))
+
+    // Nodes
+    GL.BindBuffer(GL.ARRAY_BUFFER, vbo_ids[0])
+    GL.BufferData(GL.ARRAY_BUFFER, len(node_vertices)*size_of(f32), &node_vertices[0], GL.STATIC_DRAW )
+    GL.BindBuffer(GL.ARRAY_BUFFER, 0)
+
+    // Pellets
+    GL.BindBuffer(GL.ARRAY_BUFFER, vbo_ids[1])
+    GL.BufferData(GL.ARRAY_BUFFER, len(pellet_vertices)*size_of(f32), &pellet_vertices[0], GL.STATIC_DRAW )
+    GL.BindBuffer(GL.ARRAY_BUFFER, 0)
+
+    vertex_builder: gfx.VertexBuilder
+
+    pos_attr: gfx.VertexAttribute
+    pos_attr.count = 2
+    pos_attr.value_type = .Float
+
+    gfx.push_attribute(&vertex_builder, pos_attr)
+
+    color_attr: gfx.VertexAttribute
+    color_attr.count = 4
+    color_attr.value_type = .Float
+
+    gfx.push_attribute(&vertex_builder, color_attr)
+
+    gfx.generate_layout(&vertex_builder, vbo_ids[0], vao_ids[0])
+    gfx.generate_layout(&vertex_builder, vbo_ids[1], vao_ids[1])
+
+    level.node_vao_id = vao_ids[0]
+    level.pellets_vao_id = vao_ids[1]
+    
+}
 
 read_level :: proc(filename: string) -> (LevelData, ParseError) {
 	file, read_ok := os.read_entire_file(filename, context.allocator)
@@ -291,8 +350,10 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 		}
 	}
 
+
 	delete(file)
 	delete(lines)
 
 	return {data, row_count, col_count}, .None
 }
+

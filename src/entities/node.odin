@@ -2,6 +2,7 @@ package entities
 
 import LinAlg "core:math/linalg"
 import SDL "vendor:sdl2"
+import GL "vendor:OpenGL"
 
 Direction :: enum i8 {
 	None   = -1,
@@ -11,7 +12,6 @@ Direction :: enum i8 {
 	Right  = 3,
 	Portal = 4,
 }
-
 
 Node :: struct {
 	neighbors: [5]^Node,
@@ -84,3 +84,4 @@ debug_render_node :: proc(renderer: ^SDL.Renderer, node: ^Node, color: [3]u8, re
 	SDL.SetRenderDrawColor(renderer, 123, 211, 0, 255)
 
 }
+

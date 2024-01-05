@@ -6,14 +6,18 @@ import "core:fmt"
 import "entities"
 import Level "level"
 import SDL "vendor:sdl2"
+import "gfx"
 
 App :: struct {
 	perf_frequency: f64,
 	renderer:       ^SDL.Renderer,
 	window:         ^SDL.Window,
+	gl_context:     rawptr,
 }
 
 app := App{}
+
+WITH_OPENGL :: true
 
 
 init_sdl :: proc() {
@@ -46,6 +50,16 @@ init_sdl :: proc() {
 
 main :: proc() {
 
+	when WITH_OPENGL {
+		run_with_opengl()
+	} else {
+		run_default()
+	}
+
+}
+
+run_default :: proc() {
+
 	init_sdl()
 
 	level := Level.load_level("res/mazetest.txt")
@@ -58,7 +72,7 @@ main :: proc() {
 	num_keys: i32
 
 	pacman := entities.create_pacman(level.nodes[0])
-	ghost := entities.create_ghost(level.nodes[1], {0,0})
+	ghost := entities.create_ghost(level.nodes[1], {0, 0})
 
 
 	game_loop: for {
@@ -114,6 +128,7 @@ main :: proc() {
 	SDL.Quit()
 
 	Level.destroy_level(level)
+
 }
 
 get_time :: proc() -> f64 {

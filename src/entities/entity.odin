@@ -1,16 +1,20 @@
 package entities
+
 import "core:math/linalg"
+import "../gfx"
 
 Entity :: struct {
 	position:         linalg.Vector2f32,
+    scale:            linalg.Vector2f32,
 	velocity:         linalg.Vector2f32,
+    layer:            f32,
+    quad:             gfx.Quad,
 	current_node:     ^Node,
 	target_node:      ^Node,
 	speed:            f32,
 	collision_radius: f32,
 	direction:        Direction,
-
-    derived: union { Pacman, Ghost}
+    derived: union {Pacman, Ghost}
 }
 
 new_entity :: proc($T: typeid) -> ^Entity {

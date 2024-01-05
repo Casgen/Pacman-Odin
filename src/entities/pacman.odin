@@ -5,6 +5,8 @@ import "core:fmt"
 import "core:math/linalg"
 import SDL "vendor:sdl2"
 import Consts "../constants"
+import "../gfx"
+import GL "vendor:OpenGL"
 
 
 Pacman :: struct {
@@ -12,11 +14,14 @@ Pacman :: struct {
 	num_eaten:        u32,
 }
 
+
+// TODO: Take a look back at this at some point. The velocities don't have to correspond
+// accordingly to the window size
 velocity_map := map[Direction]linalg.Vector2f32 {
-	Direction.Right = linalg.Vector2f32{f32(constants.TILE_WIDTH / 16), 0.0},
-	Direction.Left = linalg.Vector2f32{f32(-constants.TILE_WIDTH / 16), 0.0},
-	Direction.Up = linalg.Vector2f32{0.0, f32(-constants.TILE_HEIGHT / 16)},
-	Direction.Down = linalg.Vector2f32{0.0, f32(constants.TILE_HEIGHT / 16)},
+	Direction.Right = linalg.Vector2f32{1.0, 0.0},
+	Direction.Left = linalg.Vector2f32{-1.0, 0.0},
+	Direction.Up = linalg.Vector2f32{0.0, 1.0},
+	Direction.Down = linalg.Vector2f32{0.0, -1.0},
 }
 
 update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
@@ -146,12 +151,40 @@ debug_render_player :: proc(renderer: ^SDL.Renderer, pacman: ^Pacman) {
 	error: i32 = SDL.RenderFillRect(renderer, &player_rect)
 }
 
+ogl_debug_render_player :: proc(using pacman: ^Pacman, program: ^gfx.Program) {
+
+    GL.UseProgram(program.id)
+    GL.BindVertexArray(entity.quad.vao_id)
+    GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, entity.quad.ebo_id)
+
+    // scale_loc := GL.GetUniformLocation(program_id, "u_Scale")
+    // GL.Uniform2f(scale_loc, entity.scale.x, entity.scale.y)
+
+    gfx.set_uniform_2f(program, "u_Scale", pacman.entity.scale)
+
+    // pos_loc := GL.GetUniformLocation(program_id, "u_Position")
+    // GL.Uniform2f(pos_loc, entity.position.x, entity.position.y)
+
+    gfx.set_uniform_2f(program, "u_Position", pacman.entity.position)
+
+    // layer_loc := GL.GetUniformLocation(program_id, "u_Layer")
+    // GL.Uniform1f(layer_loc, entity.layer)
+
+    gfx.set_uniform_1f(program, "u_Layer", pacman.entity.layer)
+
+    GL.DrawElements(GL.TRIANGLE_STRIP, 4, GL.UNSIGNED_INT, nil)
+
+}
+
 create_pacman :: proc(starting_node: ^Node) -> Pacman {
 
 	pacman: Pacman
 
     pacman.entity = new_entity(Pacman)
 	pacman.position = starting_node.position
+    pacman.layer = 0.0
+    pacman.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
+    pacman.quad = gfx.create_quad({1.0,1.0,0.0,1.0})
 	pacman.current_node = starting_node
 	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
     pacman.collision_radius = 5
