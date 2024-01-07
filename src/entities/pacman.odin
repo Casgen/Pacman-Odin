@@ -17,106 +17,80 @@ Pacman :: struct {
 
 // TODO: Take a look back at this at some point. The velocities don't have to correspond
 // accordingly to the window size
-velocity_map := map[Direction]linalg.Vector2f32 {
+VelocityMap :: [Direction]linalg.Vector2f32 {
 	Direction.Right = linalg.Vector2f32{1.0, 0.0},
 	Direction.Left = linalg.Vector2f32{-1.0, 0.0},
 	Direction.Up = linalg.Vector2f32{0.0, 1.0},
 	Direction.Down = linalg.Vector2f32{0.0, -1.0},
+    Direction.None = linalg.Vector2f32{0.0, 0.0},
+    Direction.Portal = linalg.Vector2f32{0.0, 0.0},
 }
 
-update_control :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
+velocity_map := VelocityMap
+
+update_direction :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 	assert(pacman.current_node != nil)
 
-	new_direction: Direction
-
 	#partial switch scancode {
 	case SDL.Scancode.RIGHT:
-		new_direction = Direction.Right
+		pacman.direction = Direction.Right
 	case SDL.Scancode.LEFT:
-		new_direction = Direction.Left
+		pacman.direction = Direction.Left
 	case SDL.Scancode.DOWN:
-		new_direction = Direction.Down
+		pacman.direction = Direction.Down
 	case SDL.Scancode.UP:
-		new_direction = Direction.Up
+		pacman.direction = Direction.Up
 	case:
-		new_direction = Direction.None
+		pacman.direction = Direction.None
 	}
 
-	if new_direction == Direction.None {
-		return
-	}
+}
 
+update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 
-	if pacman.direction == Direction.None {
-		update_target_node(pacman, new_direction)
-		return
-	}
+    if !is_moving(pacman) && pacman.direction != .None {
+        update_target_node(pacman, pacman.direction)
+    }
 
-	new_velocity := velocity_map[new_direction]
+    if pacman.target_node == nil {
+        pacman.velocity = {0, 0}
+        pacman.direction = .None
+        return
+    }
 
-    // This ensures that the player doesn't steer off from the path
-	if linalg.equal_single(linalg.dot(pacman.velocity, new_velocity), 0) &&
-	   pacman.direction != Direction.None {
-		return
-	}
+    if pacman.target_node.is_ghost {
+        pacman.target_node = nil
+    }
 
-
+    // Check and Reverse Direction if needed
+    new_velocity := velocity_map[pacman.direction]
 	length := linalg.vector_length2(new_velocity + pacman.velocity)
 
 	if linalg.equal_single(length, 0) {
 		temp := pacman.current_node
 		pacman.current_node = pacman.target_node
 		pacman.target_node = temp
-	} else {
-		update_target_node(pacman, new_direction)
-		return
-	}
-
-	pacman.velocity = new_velocity
-	pacman.direction = new_direction
-
-}
-
-update_target_node :: proc(pacman: ^Pacman, direction: Direction) {
-	target_node := pacman.current_node.neighbors[direction]
-
-	if target_node != nil {
-		pacman.target_node = target_node
-		pacman.velocity = velocity_map[direction]
-		pacman.direction = direction
-	}
-}
-
-
-update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
-
-	if pacman.target_node == nil {
-	    pacman.velocity = {0, 0}
-        return
+        pacman.velocity = new_velocity
 	}
 
     pacman.position += dt * pacman.velocity * pacman.speed
+    fmt.println(pacman.position)
 
-    if !has_overshot_target(pacman) {
-        return
+    if has_overshot_target(pacman) {
+
+        if pacman.target_node.is_portal {
+            pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
+            pacman.target_node = pacman.current_node.neighbors[pacman.direction]
+            pacman.position = pacman.current_node.position
+            return
+        }
+
+        pacman.current_node = pacman.target_node
+        pacman.position = pacman.target_node.position
+        update_target_node(pacman, pacman.direction)
+
     }
-
-    if pacman.target_node.is_portal {
-        pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
-        pacman.target_node = pacman.current_node.neighbors[pacman.direction]
-        pacman.position = pacman.current_node.position
-
-        return
-    }
-
-    pacman.current_node = pacman.target_node
-    pacman.position = pacman.target_node.position
-    pacman.target_node = nil
-    pacman.direction = Direction.None
-    pacman.velocity = {0, 0}
-
-    return
 
 }
 

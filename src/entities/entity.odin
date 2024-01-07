@@ -30,3 +30,21 @@ has_overshot_target :: proc(entity: ^Entity) -> bool {
     return path_distance <= distance_to_node
 }
 
+is_moving :: proc(using entity: ^Entity) -> bool {
+    return linalg.vector_length2(entity.velocity) > 0.0
+}
+
+update_target_node :: proc(entity: ^Entity, direction: Direction) {
+
+    if (direction == .None || direction == .Portal) {
+        return
+    }
+
+	target_node := entity.current_node.neighbors[direction]
+
+	if target_node != nil {
+		entity.target_node = target_node
+		entity.velocity = velocity_map[direction]
+		entity.direction = direction
+	}
+}
