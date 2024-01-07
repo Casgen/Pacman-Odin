@@ -69,6 +69,8 @@ first_parse_stage :: proc(
 	node_map: map[string]^Ent.Node
 	portal_node_map: map[u8]^Ent.Node
 
+    normalized_dims: linalg.Vector2f32 = {Consts.TILE_WIDTH * f32(lvl_data.col_count), Consts.TILE_HEIGHT * f32(lvl_data.row_count)}
+
 	for row in 0 ..< lvl_data.row_count {
 
 		row_nodes: [dynamic]^Ent.Node = {}
@@ -77,11 +79,18 @@ first_parse_stage :: proc(
 
 			obj := lvl_data.data[col + lvl_data.col_count * row]
 			position: linalg.Vector2f32 =  {
-				f32(col) * Consts.TILE_WIDTH - 1,
-			    (2 - f32(row) * Consts.TILE_HEIGHT) - 1,
+				f32(col) * Consts.TILE_WIDTH - normalized_dims.x/2,
+			    normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
 			}
 
 			switch obj {
+            case 'g':
+				key: string = fmt.aprintf("%d|%d", row, col)
+
+				new_node := Ent.create_node(position.x, position.y, false, true, node_allocator)
+
+				node_map[key] = new_node
+				append(&row_nodes, new_node)
 			case '+', 'P', 'n':
 				key: string = fmt.aprintf("%d|%d", row, col)
 
@@ -130,6 +139,8 @@ second_parse_stage :: proc(
 
 	pellets: [dynamic]Ent.Pellet
 
+    normalized_dims: linalg.Vector2f32 = {Consts.TILE_WIDTH * f32(lvl_data.col_count), Consts.TILE_HEIGHT * f32(lvl_data.row_count)}
+
 	for col in 0 ..< lvl_data.col_count {
 
 		col_nodes: [dynamic]^Ent.Node = {}
@@ -138,8 +149,8 @@ second_parse_stage :: proc(
 
 			obj := lvl_data.data[col + lvl_data.col_count * row]
 			position: linalg.Vector2f32 =  {
-				f32(col) * Consts.TILE_WIDTH - 1,
-			    (2 - f32(row) * Consts.TILE_HEIGHT) - 1,
+				f32(col) * Consts.TILE_WIDTH - normalized_dims.x/2,
+			    normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
 			}
 			key: string = fmt.aprintf("%d|%d", row, col)
 
@@ -250,11 +261,11 @@ create_debug_gl_points :: proc(level: ^Level) {
     reserve(&node_vertices,  len(level.nodes) * 6)
 
     for &pellet in level.pellets {
-        append(&pellet_vertices, pellet.position.x, pellet.position.y, 1.0, 0.7, 0.0, 1.0)
+        append(&pellet_vertices, pellet.position.x, pellet.position.y, 1.0, 0.7, 0.0, 1.0, 10)
     }
 
     for &node in level.nodes {
-        append(&node_vertices, node.position.x, node.position.y, 1.0, 0.0, 0.0, 1.0)
+        append(&node_vertices, node.position.x, node.position.y, 1.0, 0.0, 0.0, 1.0, 20)
     }
 
     vao_ids := [2]u32{0,0}
@@ -286,6 +297,12 @@ create_debug_gl_points :: proc(level: ^Level) {
     color_attr.value_type = .Float
 
     gfx.push_attribute(&vertex_builder, color_attr)
+
+    size_attr: gfx.VertexAttribute
+    size_attr.count = 1
+    size_attr.value_type = .Float
+
+    gfx.push_attribute(&vertex_builder, size_attr)
 
     gfx.generate_layout(&vertex_builder, vbo_ids[0], vao_ids[0])
     gfx.generate_layout(&vertex_builder, vbo_ids[1], vao_ids[1])

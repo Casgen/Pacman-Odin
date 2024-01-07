@@ -157,19 +157,8 @@ ogl_debug_render_player :: proc(using pacman: ^Pacman, program: ^gfx.Program) {
     GL.BindVertexArray(entity.quad.vao_id)
     GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, entity.quad.ebo_id)
 
-    // scale_loc := GL.GetUniformLocation(program_id, "u_Scale")
-    // GL.Uniform2f(scale_loc, entity.scale.x, entity.scale.y)
-
     gfx.set_uniform_2f(program, "u_Scale", pacman.entity.scale)
-
-    // pos_loc := GL.GetUniformLocation(program_id, "u_Position")
-    // GL.Uniform2f(pos_loc, entity.position.x, entity.position.y)
-
     gfx.set_uniform_2f(program, "u_Position", pacman.entity.position)
-
-    // layer_loc := GL.GetUniformLocation(program_id, "u_Layer")
-    // GL.Uniform1f(layer_loc, entity.layer)
-
     gfx.set_uniform_1f(program, "u_Layer", pacman.entity.layer)
 
     GL.DrawElements(GL.TRIANGLE_STRIP, 4, GL.UNSIGNED_INT, nil)

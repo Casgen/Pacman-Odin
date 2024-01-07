@@ -6,6 +6,8 @@ import "core:math/linalg"
 import "core:math/rand"
 import SDL "vendor:sdl2"
 import "core:fmt"
+import "../gfx"
+import GL "vendor:OpenGL"
 
 GhostState :: enum {
 	Scatter,
@@ -19,7 +21,7 @@ Ghost :: struct {
 	color:              [3]u8,
 	goal, scatter_goal: linalg.Vector2f32,
 	state:              GhostState,
-	timer:              f32,
+	timer:              f32, // Represented in millis
 }
 
 
@@ -30,12 +32,13 @@ create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> G
 	ghost: Ghost
 
 	ghost.entity = new_entity(Ghost)
+    ghost.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
+    ghost.quad = gfx.create_quad({1.0,0.0,1.0,1.0})
 	ghost.position = starting_node.position
 	ghost.current_node = starting_node
 	ghost.speed = 0.1 * f32(Consts.TILE_WIDTH / 16)
 	ghost.collision_radius = 5
 	ghost.target_node = nil
-	ghost.color = {0xA9, 0xE1, 0x90}
 	ghost.goal = {0, 0}
 	ghost.scatter_goal = scatter_goal
 	ghost.state = GhostState.Scatter
@@ -162,4 +165,17 @@ debug_render_ghost :: proc(renderer: ^SDL.Renderer, ghost: ^Ghost) {
 
 	SDL.SetRenderDrawColor(renderer, ghost.color[0], ghost.color[1], ghost.color[2], 255)
 	error: i32 = SDL.RenderFillRect(renderer, &rect)
+}
+
+ogl_debug_render_ghost :: proc(using ghost: ^Ghost, program: ^gfx.Program) {
+    GL.UseProgram(program.id)
+    GL.BindVertexArray(entity.quad.vao_id)
+    GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, entity.quad.ebo_id)
+
+    gfx.set_uniform_2f(program, "u_Scale", entity.scale)
+    gfx.set_uniform_2f(program, "u_Position", entity.position)
+    gfx.set_uniform_1f(program, "u_Layer", entity.layer)
+
+    GL.DrawElements(GL.TRIANGLE_STRIP, 4, GL.UNSIGNED_INT, nil)
+
 }

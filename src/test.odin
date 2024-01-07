@@ -100,6 +100,7 @@ run_with_opengl :: proc() {
 	level := Level.load_level("res/mazetest.txt")
 
 	pacman := entities.create_pacman(level.nodes[0])
+	ghost := entities.create_ghost(level.nodes[0], {1.0,1.0})
     program := gfx.create_program("res/shaders/quad/")
     point_program := gfx.create_program("res/shaders/node_pellets")
 
@@ -132,6 +133,7 @@ run_with_opengl :: proc() {
 
 
 		entities.update_pacman_pos(&pacman, delta_time)
+        entities.update_ghost_ai(&ghost, pacman.position, delta_time)
 
         fmt.println(pacman.position)
 
@@ -140,8 +142,8 @@ run_with_opengl :: proc() {
         gfx.ogl_draw_debug_points(len(level.nodes), level.node_vao_id, point_program.id) 
         gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, point_program.id) 
 
-        GL.UseProgram(program.id)
         entities.ogl_debug_render_player(&pacman, &program)
+        entities.ogl_debug_render_ghost(&ghost, &program)
 
         SDL.GL_SwapWindow(app.window)
 

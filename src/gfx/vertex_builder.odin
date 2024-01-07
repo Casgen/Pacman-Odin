@@ -19,7 +19,8 @@ GlValueType :: enum {
     UByte,
     Byte,
     UInt,
-    Int
+    Int,
+    Bool
 }
 
 GlValue_Vectors :: [GlValueType][2]u32 {
@@ -28,6 +29,7 @@ GlValue_Vectors :: [GlValueType][2]u32 {
     .Byte   = {GL.BYTE, 1},
     .UInt   = {GL.UNSIGNED_INT, 4},
     .Int    = {GL.INT, 4},
+    .Bool   = {GL.BOOL, 4},
 }
 
 gl_value_vectors := GlValue_Vectors
