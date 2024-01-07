@@ -40,11 +40,17 @@ update_target_node :: proc(entity: ^Entity, direction: Direction) {
         return
     }
 
-	target_node := entity.current_node.neighbors[direction]
+	entity.target_node = entity.current_node.neighbors[direction]
 
-	if target_node != nil {
-		entity.target_node = target_node
+	if entity.target_node != nil {
 		entity.velocity = velocity_map[direction]
 		entity.direction = direction
+        return
 	}
+
+    entity.velocity = {0,0}
+    entity.direction = .None
+    return
+
+
 }

@@ -10,8 +10,9 @@ import GL "vendor:OpenGL"
 
 
 Pacman :: struct {
-    using entity: ^Entity,
-	num_eaten:        u32,
+    using entity:       ^Entity,
+	num_eaten:          u32,
+    desired_direction:  Direction
 }
 
 
@@ -34,28 +35,26 @@ update_direction :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 	#partial switch scancode {
 	case SDL.Scancode.RIGHT:
-		pacman.direction = Direction.Right
+		pacman.desired_direction = Direction.Right
 	case SDL.Scancode.LEFT:
-		pacman.direction = Direction.Left
+		pacman.desired_direction = Direction.Left
 	case SDL.Scancode.DOWN:
-		pacman.direction = Direction.Down
+		pacman.desired_direction = Direction.Down
 	case SDL.Scancode.UP:
-		pacman.direction = Direction.Up
+		pacman.desired_direction = Direction.Up
 	case:
-		pacman.direction = Direction.None
+		pacman.desired_direction = Direction.None
 	}
 
 }
 
 update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 
-    if !is_moving(pacman) && pacman.direction != .None {
-        update_target_node(pacman, pacman.direction)
+    if !is_moving(pacman) && pacman.desired_direction != .None {
+        update_target_node(pacman, pacman.desired_direction)
     }
 
     if pacman.target_node == nil {
-        pacman.velocity = {0, 0}
-        pacman.direction = .None
         return
     }
 
@@ -63,35 +62,42 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
         pacman.target_node = nil
     }
 
-    // Check and Reverse Direction if needed
-    new_velocity := velocity_map[pacman.direction]
+    // Is Pacman trying to reverse?
+    new_velocity := velocity_map[pacman.desired_direction]
 	length := linalg.vector_length2(new_velocity + pacman.velocity)
 
 	if linalg.equal_single(length, 0) {
 		temp := pacman.current_node
 		pacman.current_node = pacman.target_node
 		pacman.target_node = temp
+        pacman.direction = pacman.desired_direction
         pacman.velocity = new_velocity
 	}
 
     pacman.position += dt * pacman.velocity * pacman.speed
-    fmt.println(pacman.position)
 
-    if has_overshot_target(pacman) {
-
-        if pacman.target_node.is_portal {
-            pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
-            pacman.target_node = pacman.current_node.neighbors[pacman.direction]
-            pacman.position = pacman.current_node.position
-            return
-        }
-
-        pacman.current_node = pacman.target_node
-        pacman.position = pacman.target_node.position
-        update_target_node(pacman, pacman.direction)
-
+    if !has_overshot_target(pacman) {
+        return
     }
 
+    // At this point pacman has reached its target node
+    if pacman.target_node.is_portal {
+        pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
+        pacman.target_node = pacman.current_node.neighbors[pacman.direction]
+        pacman.position = pacman.current_node.position
+        return
+    }
+
+    pacman.current_node = pacman.target_node
+    pacman.position = pacman.target_node.position
+
+    // Does a next node exist while trying to steer off?
+    if pacman.direction != pacman.desired_direction && pacman.target_node.neighbors[pacman.desired_direction] != nil{
+        update_target_node(pacman, pacman.desired_direction)
+        return
+    }
+
+    update_target_node(pacman, pacman.direction)
 }
 
 

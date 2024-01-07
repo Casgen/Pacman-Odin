@@ -65,7 +65,7 @@ debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, leng
 
 init_sdl_with_gl :: proc() {
 
-	assert(SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK) == 0, SDL.GetErrorString())
+	assert(SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK | SDL.INIT_EVENTS) == 0, SDL.GetErrorString())
 
 	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_PROFILE_MASK, auto_cast (SDL.GLprofile.CORE))
 	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_MAJOR_VERSION, 4)
@@ -111,11 +111,11 @@ main :: proc() {
 	level := Level.load_level("res/mazetest.txt")
 
 	pacman := entities.create_pacman(level.nodes[0])
-	ghost := entities.create_ghost(level.nodes[0], {1.0,1.0})
+	ghost := entities.create_ghost(level.nodes[1], {1.0,1.0})
     program := gfx.create_program("res/shaders/quad/")
     point_program := gfx.create_program("res/shaders/node_pellets")
 
-	time_start, time_last: f64 = 0, 0
+	time_start, time_last: f64
 	timestep: f32 = 0
 
 	event: SDL.Event
