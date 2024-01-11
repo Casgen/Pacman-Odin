@@ -10,7 +10,7 @@ import GL "vendor:OpenGL"
 
 
 Pacman :: struct {
-    using entity:       ^Entity,
+    using entity:       Entity,
 	num_eaten:          u32,
     desired_direction:  Direction
 }
@@ -42,8 +42,6 @@ update_direction :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 		pacman.desired_direction = Direction.Down
 	case SDL.Scancode.UP:
 		pacman.desired_direction = Direction.Up
-	case:
-		pacman.desired_direction = Direction.None
 	}
 
 }
@@ -60,6 +58,7 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 
     if pacman.target_node.is_ghost {
         pacman.target_node = nil
+        return
     }
 
     // Is Pacman trying to reverse?
@@ -101,22 +100,18 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 }
 
 
-try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet, remove_from_array: bool = false) -> (^Pellet, int) {
+try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet) -> (^Pellet, int) {
 
 	diff: linalg.Vector2f32
 
-	for i in 0 ..< len(pellets) {
-        distance := linalg.vector_length2(pacman.position - pellets[i].position)
+	for &pellet, i in pellets {
+        distance := linalg.vector_length2(pacman.position - pellet.position)
 		r_distance :=
 			(pacman.collision_radius * pacman.collision_radius) +
-			(pellets[i].radius) * (pellets[i].radius)
+			(pellet.radius) * (pellet.radius)
 
-		if distance < r_distance {
-            defer if remove_from_array {
-                ordered_remove(pellets, i)
-            }
-
-			return &pellets[i], i
+		if distance < r_distance && pellets[i].is_visible {
+			return &pellet, i
 		}
 	}
 
@@ -149,17 +144,18 @@ create_pacman :: proc(starting_node: ^Node) -> Pacman {
 
 	pacman: Pacman
 
-    pacman.entity = new_entity(Pacman)
+    pacman.entity = {} 
 	pacman.position = starting_node.position
     pacman.layer = 0.0
     pacman.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
     pacman.quad = gfx.create_quad({1.0,1.0,0.0,1.0})
 	pacman.current_node = starting_node
 	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
-    pacman.collision_radius = 5
+    pacman.collision_radius = Consts.TILE_WIDTH / 2
 	pacman.velocity = {0, 0}
 	pacman.target_node = nil
 	pacman.direction = Direction.None
+	pacman.desired_direction = Direction.Left
 
     return pacman
 }

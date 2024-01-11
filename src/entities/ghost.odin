@@ -17,7 +17,7 @@ GhostState :: enum {
 }
 
 Ghost :: struct {
-	using entity:       ^Entity,
+	using entity:       Entity,
 	color:              [3]u8,
 	goal, scatter_goal: linalg.Vector2f32,
 	state:              GhostState,
@@ -31,7 +31,7 @@ create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> G
 
 	ghost: Ghost
 
-	ghost.entity = new_entity(Ghost)
+    ghost.entity = {}
     ghost.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
     ghost.quad = gfx.create_quad({1.0,0.0,1.0,1.0})
 	ghost.position = starting_node.position
@@ -112,14 +112,17 @@ update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 	min_distance: f32 = math.F32_MAX
 	closest_node_index: int
 
-	for node, i in valid_nodes {
-
-		distance := linalg.vector_length2(node.position - ghost.goal)
-		if distance < min_distance {
-			closest_node_index = i
-			min_distance = distance
-		}
-	}
+    if (len(valid_directions) == 1) {
+        closest_node_index = 0
+    } else {
+        for node, i in valid_nodes {
+            distance := linalg.vector_length2(node.position - ghost.goal)
+            if distance < min_distance && node != ghost.current_node {
+                closest_node_index = i
+                min_distance = distance
+            }
+        }
+    }
 
 	ghost.position = ghost.target_node.position
 	ghost.current_node = ghost.target_node

@@ -21,6 +21,7 @@ Level :: struct {
 	nodes:              [dynamic]^Ent.Node,
 	pellets:            [dynamic]Ent.Pellet,
     pellets_vao_id:     u32,
+    pellets_ssbo:       gfx.SSBO,
     node_vao_id:        u32,
 }
 
@@ -163,7 +164,7 @@ second_parse_stage :: proc(
 				append(&col_nodes, found_node)
 				fallthrough
 			case '.':
-				append(&pellets, Ent.Pellet{position, 0.2, 50, Consts.PELLET_RADIUS, 0, false})
+				append(&pellets, Ent.Pellet{position, 0.2, 50, Consts.PELLET_RADIUS, 0, false, true})
 			case 'P':
 				found_node := node_map[key]
 				append(&col_nodes, found_node)
@@ -171,7 +172,7 @@ second_parse_stage :: proc(
 			case 'p':
 				append(
 					&pellets,
-					Ent.Pellet{position, 0.2, 50, Consts.POWER_PELLET_RADIUS, 10, true},
+					Ent.Pellet{position, 0.2, 50, Consts.POWER_PELLET_RADIUS, 10, true, true},
 				)
 			case 'X':
 				if len(col_nodes) > 0 {
@@ -219,7 +220,8 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	level.pellets = pellets
 
-    create_debug_gl_points(level)
+    level.node_vao_id, _ = Ent.create_debug_nodes_buffer(level.nodes)
+    level.pellets_vao_id, _, level.pellets_ssbo = Ent.create_pellets_buffer(level.pellets)
 
 	return level
 }
@@ -257,8 +259,8 @@ create_debug_gl_points :: proc(level: ^Level) {
     pellet_vertices: [dynamic]f32
     node_vertices: [dynamic]f32
 
-    reserve(&pellet_vertices, len(level.pellets) * 6)
-    reserve(&node_vertices,  len(level.nodes) * 6)
+    reserve(&pellet_vertices, len(level.pellets) * 7)
+    reserve(&node_vertices,  len(level.nodes) * 7)
 
     for &pellet in level.pellets {
         append(&pellet_vertices, pellet.position.x, pellet.position.y, 1.0, 0.7, 0.0, 1.0, 10)

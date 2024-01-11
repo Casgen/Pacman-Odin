@@ -34,10 +34,20 @@ GlValue_Vectors :: [GlValueType][2]u32 {
 
 gl_value_vectors := GlValue_Vectors
 
+push_attribute :: proc {
+    push_attribute_struct,
+    push_attribute_params,
+}
 
-push_attribute :: proc(using builder: ^VertexBuilder, attribute: VertexAttribute) {
+
+push_attribute_struct :: proc(using builder: ^VertexBuilder, attribute: VertexAttribute) {
     append(&attributes, attribute)
     stride += attribute.count * gl_value_vectors[attribute.value_type][1]
+}
+
+push_attribute_params :: proc(using builder: ^VertexBuilder, count: u32, value_type: GlValueType, normalized: bool = false) {
+    append(&attributes, VertexAttribute{count, value_type, normalized})
+    stride += count * gl_value_vectors[value_type][1]
 }
 
 

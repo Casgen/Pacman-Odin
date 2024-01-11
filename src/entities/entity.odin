@@ -14,13 +14,6 @@ Entity :: struct {
 	speed:            f32,
 	collision_radius: f32,
 	direction:        Direction,
-    derived: union {Pacman, Ghost}
-}
-
-new_entity :: proc($T: typeid) -> ^Entity {
-    t := new(Entity)
-    t.derived = T{entity = t}
-    return t
 }
 
 has_overshot_target :: proc(entity: ^Entity) -> bool {

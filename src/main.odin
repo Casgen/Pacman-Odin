@@ -114,6 +114,7 @@ main :: proc() {
 	ghost := entities.create_ghost(level.nodes[1], {1.0,1.0})
     program := gfx.create_program("res/shaders/quad/")
     point_program := gfx.create_program("res/shaders/node_pellets")
+    pellets_program := gfx.create_program("res/shaders/pellets")
 
 	time_start, time_last: f64
 	timestep: f32 = 0
@@ -144,12 +145,23 @@ main :: proc() {
 
 
 		entities.update_pacman_pos(&pacman, delta_time)
+        pellet, i := entities.try_eat_pellets(&pacman, &level.pellets)
+
+        if pellet != nil {
+            entities.set_visibility(pellet, i, level.pellets_ssbo, false)
+            fmt.println("Eaten!")
+        }
+
+
         entities.update_ghost_ai(&ghost, pacman.position, delta_time)
 
         GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
         gfx.ogl_draw_debug_points(len(level.nodes), level.node_vao_id, point_program.id) 
-        gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, point_program.id) 
+
+        GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.id)
+        GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.binding, level.pellets_ssbo.id)
+        gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, pellets_program.id) 
 
         entities.ogl_debug_render_player(&pacman, &program)
         entities.ogl_debug_render_ghost(&ghost, &program)

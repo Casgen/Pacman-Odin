@@ -3,6 +3,7 @@ package entities
 import LinAlg "core:math/linalg"
 import SDL "vendor:sdl2"
 import GL "vendor:OpenGL"
+import gfx "../gfx"
 
 Direction :: enum i8 {
 	None   = -1,
@@ -53,35 +54,29 @@ get_valid_neighbors :: proc(node: ^Node) -> ([dynamic]Direction, [dynamic]^Node)
 	return valid_directions, valid_nodes
 }
 
-debug_render_node :: proc(renderer: ^SDL.Renderer, node: ^Node, color: [3]u8, render_lines: bool) {
+create_debug_nodes_buffer :: proc(nodes: [dynamic]^Node) -> (vao_id, vbo_id: u32) {
 
-	SDL.SetRenderDrawColor(renderer, color[0], color[1], color[2], 255)
+    node_vertices: [dynamic]f32
+    reserve(&node_vertices,  len(nodes) * 7)
 
-	node_rect: SDL.Rect = {i32(node.position.x), i32(node.position.y), 16, 16}
-	SDL.RenderFillRect(renderer, &node_rect)
+    for &node in nodes {
+        append(&node_vertices, node.position.x, node.position.y, 1.0, 0.0, 0.0, 1.0, 20)
+    }
 
-	if !render_lines {
-		return
-	}
+    GL.GenVertexArrays(1, &vao_id)
+    GL.GenBuffers(1, &vbo_id)
 
-	for neighbor in node.neighbors {
-		if neighbor != nil {
+    GL.BindBuffer(GL.ARRAY_BUFFER, vbo_id)
+    GL.BufferData(GL.ARRAY_BUFFER, len(node_vertices)*size_of(f32), &node_vertices[0], GL.STATIC_DRAW)
+    GL.BindBuffer(GL.ARRAY_BUFFER, 0)
 
-			if node.is_portal && neighbor.is_portal {
-				continue
-			}
+    vertex_builder: gfx.VertexBuilder
+    gfx.push_attribute(&vertex_builder, 2, gfx.GlValueType.Float)
+    gfx.push_attribute(&vertex_builder, 4, gfx.GlValueType.Float)
+    gfx.push_attribute(&vertex_builder, 1, gfx.GlValueType.Float)
 
-			SDL.RenderDrawLine(
-				renderer,
-				i32(node.position.x),
-				i32(node.position.y),
-				i32(neighbor^.position.x),
-				i32(neighbor^.position.y),
-			)
-		}
-	}
+    gfx.generate_layout(&vertex_builder, vbo_id, vao_id)
 
-	SDL.SetRenderDrawColor(renderer, 123, 211, 0, 255)
-
+    return vao_id, vbo_id
 }
 
