@@ -152,7 +152,6 @@ main :: proc() {
             fmt.println("Eaten!")
         }
 
-
         entities.update_ghost_ai(&ghost, pacman.position, delta_time)
 
         GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)

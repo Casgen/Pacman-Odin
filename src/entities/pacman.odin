@@ -137,7 +137,6 @@ ogl_debug_render_player :: proc(using pacman: ^Pacman, program: ^gfx.Program) {
     gfx.set_uniform_1f(program, "u_Layer", pacman.entity.layer)
 
     GL.DrawElements(GL.TRIANGLE_STRIP, 4, GL.UNSIGNED_INT, nil)
-
 }
 
 create_pacman :: proc(starting_node: ^Node) -> Pacman {

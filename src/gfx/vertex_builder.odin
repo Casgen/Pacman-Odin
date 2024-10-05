@@ -1,7 +1,7 @@
 package gfx
 
 import GL "vendor:OpenGL"
-import "core:runtime"
+import "base:runtime"
 
 VertexAttribute :: struct {
     count:      u32,         
