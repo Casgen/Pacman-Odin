@@ -10,10 +10,14 @@ import "core:os"
 import "core:strings"
 import "core:thread"
 import GL "vendor:OpenGL"
+import "core:math"
 import "../gfx"
+import "core:simd"
 
 NODE_BUFFER_SIZE_BYTES :: size_of(Ent.Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Ent.Pellet) * 1024
+
+imat3 :: distinct matrix[3, 3]i32
 
 Level :: struct {
 	node_arena:         virtual.Arena,
@@ -23,11 +27,14 @@ Level :: struct {
     pellets_vao_id:     u32,
     pellets_ssbo:       gfx.SSBO,
     node_vao_id:        u32,
+	pacman_spawn:		^Ent.Node,
+	ghost_spawns:		[dynamic]^Ent.Node,
 }
 
 LevelData :: struct {
-	data:                 string,
-	row_count, col_count: int,
+	data:					string,
+	wall_data:				[dynamic]u8,
+	row_count, col_count:	int,
 }
 
 ObjectType :: enum u8 {
@@ -35,6 +42,78 @@ ObjectType :: enum u8 {
 	Node        = 1,
 	Empty_Space = 2,
 	Ghost_Gate  = 3,
+}
+
+// Wall type 'Block' and 'Empty' is omitter due to having no neighbors. They can be determined easily.
+wall_bitmask_map := map[u8]u8{
+	0b00000000 = u8(WallType.Block),
+
+	0b10101010 = u8(WallType.FourCorner),
+
+	0b10101010 = u8(WallType.ThreeCorner),
+	0b10101110 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg90) << 4,
+	0b10111010 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg180) << 4,
+	0b11101010 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg270) << 4,
+
+	0b10000011 = u8(WallType.Bulge),
+	0b00001110 = u8(WallType.Bulge) | u8(WallOrientation.Deg90) << 4,
+	0b00111000 = u8(WallType.Bulge) | u8(WallOrientation.Deg180) << 4,
+	0b11100000 = u8(WallType.Bulge) | u8(WallOrientation.Deg270) << 4,
+
+	0b11100011 = u8(WallType.Wall),
+	0b10001111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
+	0b00111110 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
+	0b11111000 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
+
+	0b11111010 = u8(WallType.TwoCorner),
+	0b11101011 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg90) << 4,
+	0b00101111 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg180) << 4,
+	0b01011111 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg270) << 4,
+
+	0b11111011 = u8(WallType.OneCorner),
+	0b11101111 = u8(WallType.OneCorner) | u8(WallOrientation.Deg90) << 4,
+	0b10111111 = u8(WallType.OneCorner) | u8(WallOrientation.Deg180) << 4,
+	0b11111110 = u8(WallType.OneCorner) | u8(WallOrientation.Deg270) << 4,
+
+	0b00100010 = u8(WallType.Column),
+	0b10001000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
+
+	0b10100000 = u8(WallType.LShaped),
+	0b10000010 = u8(WallType.LShaped) | u8(WallOrientation.Deg90) << 4,
+	0b00001010 = u8(WallType.LShaped) | u8(WallOrientation.Deg180) << 4,
+	0b00101000 = u8(WallType.LShaped) | u8(WallOrientation.Deg270) << 4,
+
+	0b00100000 = u8(WallType.Tip),
+	0b10000000 = u8(WallType.Tip) | u8(WallOrientation.Deg90) << 4,
+	0b00000010 = u8(WallType.Tip) | u8(WallOrientation.Deg180) << 4,
+	0b00001000 = u8(WallType.Tip) | u8(WallOrientation.Deg270) << 4,
+
+	0b10001010 = u8(WallType.TShaped),
+	0b00101010 = u8(WallType.TShaped) | u8(WallOrientation.Deg90) << 4,
+	0b10101000 = u8(WallType.TShaped) | u8(WallOrientation.Deg180) << 4,
+	0b10100010 = u8(WallType.TShaped) | u8(WallOrientation.Deg270) << 4,
+}
+
+WallType :: enum u8 {
+	Empty		=  0,
+	FourCorner	=  1,
+	ThreeCorner =  2,
+	Bulge		=  3,
+	Wall		=  4,
+	TwoCorner	=  5,
+	OneCorner	=  6,
+	Column		=  7,
+	LShaped		=  8,
+	Tip			=  9,
+	TShaped		= 10,
+	Block		= 11,
+}
+
+WallOrientation :: enum u8 {
+	Deg0	= 0,
+	Deg90	= 1,
+	Deg180	= 2,
+	Deg270	= 3,
 }
 
 ParseError :: enum {
@@ -61,16 +140,31 @@ load_level :: proc(filename: string) -> ^Level {
 	return parse_level(&lvl_data)
 }
 
+data_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u8 {
+	return data[x + col_count * y]
+}
+
+wall_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u8 {
+	return wall_data[x + col_count * y]
+}
+
 // Extracts the nodes and connects them horizontally
 first_parse_stage :: proc(
 	node_allocator: mem.Allocator,
 	lvl_data: ^LevelData,
-) -> map[string]^Ent.Node {
+) -> (
+	node_map: map[string]^Ent.Node,
+	pacman_spawn: ^Ent.Node,
+	ghost_spawns: [dynamic]^Ent.Node
+) {
 
-	node_map: map[string]^Ent.Node
+	node_map = {}
 	portal_node_map: map[u8]^Ent.Node
 
     normalized_dims: linalg.Vector2f32 = {Consts.TILE_WIDTH * f32(lvl_data.col_count), Consts.TILE_HEIGHT * f32(lvl_data.row_count)}
+
+	pacman_spawn = nil
+	ghost_spawns = {};
 
 	for row in 0 ..< lvl_data.row_count {
 
@@ -88,14 +182,43 @@ first_parse_stage :: proc(
             case 'g':
 				key: string = fmt.aprintf("%d|%d", row, col)
 
-				new_node := Ent.create_node(position.x, position.y, false, true, node_allocator)
+				new_node := Ent.create_node(position.x, position.y, node_allocator)
+
+				new_node.is_portal = false;
+				new_node.is_ghost = true;
 
 				node_map[key] = new_node
 				append(&row_nodes, new_node)
+            case 's':
+				key: string = fmt.aprintf("%d|%d", row, col)
+
+				new_node := Ent.create_node(position.x, position.y, node_allocator)
+
+				new_node.is_portal = false;
+				new_node.is_ghost = true;
+
+				node_map[key] = new_node
+				append(&row_nodes, new_node)
+				append(&ghost_spawns, new_node)
+            case 'S':
+				key: string = fmt.aprintf("%d|%d", row, col)
+
+				new_node := Ent.create_node(position.x, position.y, node_allocator)
+
+				new_node.is_portal = false;
+				new_node.is_ghost = false;
+
+				node_map[key] = new_node
+				append(&row_nodes, new_node)
+
+				pacman_spawn = new_node
 			case '+', 'P', 'n':
 				key: string = fmt.aprintf("%d|%d", row, col)
 
-				new_node := Ent.create_node(position.x, position.y, false, false, node_allocator)
+				new_node := Ent.create_node(position.x, position.y, node_allocator)
+
+				new_node.is_portal = false;
+				new_node.is_ghost = false;
 
 				node_map[key] = new_node
 				append(&row_nodes, new_node)
@@ -107,7 +230,10 @@ first_parse_stage :: proc(
 			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 				key: string = fmt.aprintf("%d|%d", row, col)
 
-				new_node := Ent.create_node(position.x, position.y, true, false, node_allocator)
+				new_node := Ent.create_node(position.x, position.y, node_allocator)
+
+				new_node.is_portal = true;
+				new_node.is_ghost = false;
 
 				node_map[key] = new_node
 				append(&row_nodes, new_node)
@@ -129,7 +255,7 @@ first_parse_stage :: proc(
 		connect_nodes(row_nodes, false)
 	}
 
-	return node_map
+	return
 }
 
 // Connects the given nodes vertically and creates pellets
@@ -192,6 +318,55 @@ second_parse_stage :: proc(
 	return pellets
 }
 
+third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
+
+	parsed_wall_data := make([dynamic]u8, len(lvl_data.wall_data))
+
+	for i in 0..<len(lvl_data.wall_data) {
+
+		x := i % lvl_data.col_count
+		y := i / lvl_data.col_count
+		
+		s22 := wall_at(lvl_data, x, y) // Center cell
+
+		if s22 != 1 { 
+			parsed_wall_data[x + lvl_data.col_count * y] = u8(WallType.Empty)
+			continue;
+		}
+
+		x_plus_one := min(x + 1, lvl_data.col_count - 1)
+		x_minus_one := max(x - 1, 0);
+
+		y_plus_one := min(y + 1, lvl_data.row_count - 1)
+		y_minus_one := max(y - 1, 0);
+
+		wall_bitmask: u8 = 0
+
+		top_left_cell := wall_at(lvl_data, x_minus_one, y_minus_one)
+		top_center_cell := wall_at(lvl_data, x, y_minus_one) << 1
+		top_right_cell := wall_at(lvl_data, x_plus_one, y_minus_one) << 2
+
+		right_cell := wall_at(lvl_data, x_plus_one, y) << 3
+
+		bottom_right_cell := wall_at(lvl_data, x_plus_one, y_plus_one) << 4
+		bottom_center_cell := wall_at(lvl_data, x, y_plus_one) << 5
+		bottom_left_cell := wall_at(lvl_data, x_minus_one, y_plus_one) << 6
+
+		left_cell := wall_at(lvl_data, x_minus_one, y) << 7
+
+		result_mask, ok := wall_bitmask_map[wall_bitmask]
+
+		if result_mask == 255 {
+			parsed_wall_data[x + lvl_data.col_count * y] = WallType.Empty
+		}
+
+		parsed_wall_data[x + lvl_data.col_count * y] = 
+
+	}
+
+	return parsed_wall_data
+}
+
 
 parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
@@ -209,8 +384,9 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 	node_allocator := virtual.arena_allocator(&level.node_arena)
 
 
-	node_map := first_parse_stage(node_allocator, lvl_data)
+	node_map, pacman_spawn, ghost_spawns := first_parse_stage(node_allocator, lvl_data)
 	pellets := second_parse_stage(lvl_data, &node_map)
+	third_parse_stage(lvl_data)
 
 	reserve(&level.nodes, len(node_map))
 
@@ -222,6 +398,11 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
     level.node_vao_id, _ = Ent.create_debug_nodes_buffer(level.nodes)
     level.pellets_vao_id, _, level.pellets_ssbo = Ent.create_pellets_buffer(level.pellets)
+	level.pacman_spawn = pacman_spawn
+	level.ghost_spawns = ghost_spawns
+
+	fmt.printfln("Pacman Spawn: %d", level.pacman_spawn)
+	fmt.printfln("Ghost Spawns: %d", level.ghost_spawns)
 
 	return level
 }
@@ -346,10 +527,11 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 	}
 
 	data := strings.concatenate(lines)
+	wall_data: [dynamic]u8 = make([dynamic]u8, row_count * col_count)
 
 	portal_count_map: map[rune]u32
 
-	for rune in data {
+	for rune, i in data {
 		switch rune {
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			ok := rune in portal_count_map
@@ -360,6 +542,8 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 			}
 
 			portal_count_map[rune] = 1
+		case 'X':
+			wall_data[i] = 1
 		}
 	}
 
@@ -373,6 +557,6 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 	delete(file)
 	delete(lines)
 
-	return {data, row_count, col_count}, .None
+	return {data, wall_data, row_count, col_count}, .None
 }
 

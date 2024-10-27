@@ -23,16 +23,14 @@ Node :: struct {
 
 create_node :: proc(
 	position_x, position_y: f32,
-	is_portal: bool = false,
-	is_ghost: bool = false,
 	allocator := context.allocator,
 ) -> ^Node {
 	node: ^Node = new(Node, allocator)
 
 	node.position.x = position_x
 	node.position.y = position_y
-	node.is_portal = is_portal
-	node.is_ghost = is_ghost
+	node.is_portal = false
+	node.is_ghost = false
 	node.neighbors = {}
 
 	return node

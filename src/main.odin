@@ -79,9 +79,8 @@ init_sdl_with_gl :: proc() {
 		SDL.WINDOWPOS_CENTERED,
 		Consts.SCREEN_WIDTH,
 		Consts.SCREEN_HEIGHT,
-		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL,
+		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,
 	)
-
 
 
     GL.load_up_to(4, 6, SDL.gl_set_proc_address)

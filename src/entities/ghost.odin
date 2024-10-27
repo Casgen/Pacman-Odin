@@ -13,13 +13,12 @@ GhostState :: enum {
 	Scatter,
 	Chase,
 	Freight,
-	Spawn,
 }
 
 Ghost :: struct {
 	using entity:       Entity,
 	color:              [3]u8,
-	goal, scatter_goal: linalg.Vector2f32,
+	scatter_goal: linalg.Vector2f32,
 	state:              GhostState,
 	timer:              f32, // Represented in millis
 }
@@ -39,7 +38,6 @@ create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> G
 	ghost.speed = 0.05 * f32(Consts.TILE_WIDTH / 16)
 	ghost.collision_radius = 5
 	ghost.target_node = nil
-	ghost.goal = {0, 0}
 	ghost.scatter_goal = scatter_goal
 	ghost.state = GhostState.Scatter
     ghost.timer = 7000

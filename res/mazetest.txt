@@ -15,10 +15,10 @@ X X X X X X . X X X X X | X X | X X X X X . X X X X X X
 X X X X X X . X X n - - n n n n - - n X X . X X X X X X
 X X X X X X . X X | X X X = = X X X | X X . X X X X X X
 X X X X X X . X X | X g - | | - g X | X X . X X X X X X
-0 - - - - - + - - n X g - g g - g X n - - + - - - - - 0
+0 - - - - - + - - n X s - s s - s X n - - + - - - - - 0
 X X X X X X . X X | X g - | | - g X | X X . X X X X X X
 X X X X X X . X X | X X X X X X X X | X X . X X X X X X
-X X X X X X . X X n - - - - - - - - n X X . X X X X X X
+X X X X X X . X X n - - - S - - - - n X X . X X X X X X
 X X X X X X . X X | X X X X X X X X | X X . X X X X X X
 X X X X X X . X X | X X X X X X X X | X X . X X X X X X
 X + . . . . + . . + . . + X X + . . + . . + . . . . + X
