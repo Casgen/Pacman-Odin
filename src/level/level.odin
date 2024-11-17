@@ -13,6 +13,7 @@ import GL "vendor:OpenGL"
 import "core:math"
 import "../gfx"
 import "core:simd"
+import Log "../logger"
 
 NODE_BUFFER_SIZE_BYTES :: size_of(Ent.Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Ent.Pellet) * 1024
@@ -22,6 +23,7 @@ imat3 :: distinct matrix[3, 3]i32
 Level :: struct {
 	node_arena:         virtual.Arena,
 	node_buffer:        []u8,
+	wall_data:			[dynamic]u8,
 	nodes:              [dynamic]^Ent.Node,
 	pellets:            [dynamic]Ent.Pellet,
     pellets_vao_id:     u32,
@@ -44,9 +46,21 @@ ObjectType :: enum u8 {
 	Ghost_Gate  = 3,
 }
 
-// Wall type 'Block' and 'Empty' is omitter due to having no neighbors. They can be determined easily.
+/*
+The bits are representing the neighbors of the examined cell.
+
+|1.|2.|3.|
+|8.|X |4.|
+|7.|6.|5.|
+*/
+
 wall_bitmask_map := map[u8]u8{
 	0b00000000 = u8(WallType.Block),
+
+	0b00000001 = u8(WallType.Block),
+	0b00000100 = u8(WallType.Block),
+	0b00010000 = u8(WallType.Block),
+	0b01000000 = u8(WallType.Block),
 
 	0b10101010 = u8(WallType.FourCorner),
 
@@ -65,6 +79,16 @@ wall_bitmask_map := map[u8]u8{
 	0b00111110 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
 	0b11111000 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
 
+	0b11110011 = u8(WallType.Wall),
+	0b11001111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
+	0b00111111 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
+	0b11111100 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
+
+	0b11100111 = u8(WallType.Wall),
+	0b10011111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
+	0b01111110 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
+	0b11111001 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
+
 	0b11111010 = u8(WallType.TwoCorner),
 	0b11101011 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg90) << 4,
 	0b00101111 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg180) << 4,
@@ -77,6 +101,16 @@ wall_bitmask_map := map[u8]u8{
 
 	0b00100010 = u8(WallType.Column),
 	0b10001000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
+
+	0b00110010 = u8(WallType.Column),
+	0b11001000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
+	0b00100011 = u8(WallType.Column),
+	0b10001100 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
+
+	0b01100010 = u8(WallType.Column),
+	0b10001001 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
+	0b00100110 = u8(WallType.Column),
+	0b10011000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
 
 	0b10100000 = u8(WallType.LShaped),
 	0b10000010 = u8(WallType.LShaped) | u8(WallOrientation.Deg90) << 4,
@@ -92,21 +126,34 @@ wall_bitmask_map := map[u8]u8{
 	0b00101010 = u8(WallType.TShaped) | u8(WallOrientation.Deg90) << 4,
 	0b10101000 = u8(WallType.TShaped) | u8(WallOrientation.Deg180) << 4,
 	0b10100010 = u8(WallType.TShaped) | u8(WallOrientation.Deg270) << 4,
+
+	0b10001011 = u8(WallType.RightCornerAndWall),
+	0b00101110 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg90) << 4,
+	0b10111000 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg180) << 4,
+	0b11100010 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg270) << 4,
+
+	0b10001110 = u8(WallType.LeftCornerAndWall),
+	0b00111010 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg90) << 4,
+	0b11101000 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg180) << 4,
+	0b10100011 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg270) << 4,
 }
 
+// Read the 'Wall types.md' file for the diagram references
 WallType :: enum u8 {
-	Empty		=  0,
-	FourCorner	=  1,
-	ThreeCorner =  2,
-	Bulge		=  3,
-	Wall		=  4,
-	TwoCorner	=  5,
-	OneCorner	=  6,
-	Column		=  7,
-	LShaped		=  8,
-	Tip			=  9,
-	TShaped		= 10,
-	Block		= 11,
+	Empty				=  0,
+	FourCorner			=  1,
+	ThreeCorner 		=  2,
+	Bulge				=  3,
+	Wall				=  4,
+	TwoCorner			=  5,
+	OneCorner			=  6,
+	Column				=  7,
+	LShaped				=  8,
+	Tip					=  9,
+	TShaped				= 10,
+	RightCornerAndWall	= 11,
+	LeftCornerAndWall	= 12,
+	Block				= 13,
 }
 
 WallOrientation :: enum u8 {
@@ -340,27 +387,39 @@ third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
 		y_plus_one := min(y + 1, lvl_data.row_count - 1)
 		y_minus_one := max(y - 1, 0);
 
-		wall_bitmask: u8 = 0
-
 		top_left_cell := wall_at(lvl_data, x_minus_one, y_minus_one)
-		top_center_cell := wall_at(lvl_data, x, y_minus_one) << 1
-		top_right_cell := wall_at(lvl_data, x_plus_one, y_minus_one) << 2
+		top_center_cell := wall_at(lvl_data, x, y_minus_one)
+		top_right_cell := wall_at(lvl_data, x_plus_one, y_minus_one)
 
-		right_cell := wall_at(lvl_data, x_plus_one, y) << 3
+		right_cell := wall_at(lvl_data, x_plus_one, y)
 
-		bottom_right_cell := wall_at(lvl_data, x_plus_one, y_plus_one) << 4
-		bottom_center_cell := wall_at(lvl_data, x, y_plus_one) << 5
-		bottom_left_cell := wall_at(lvl_data, x_minus_one, y_plus_one) << 6
+		bottom_right_cell := wall_at(lvl_data, x_plus_one, y_plus_one)
+		bottom_center_cell := wall_at(lvl_data, x, y_plus_one)
+		bottom_left_cell := wall_at(lvl_data, x_minus_one, y_plus_one)
 
-		left_cell := wall_at(lvl_data, x_minus_one, y) << 7
+		left_cell := wall_at(lvl_data, x_minus_one, y)
+
+		wall_bitmask := top_left_cell
+		wall_bitmask |= top_center_cell << 1
+		wall_bitmask |= top_right_cell << 2
+		wall_bitmask |= right_cell << 3
+		wall_bitmask |= bottom_right_cell << 4
+		wall_bitmask |= bottom_center_cell << 5
+		wall_bitmask |= bottom_left_cell << 6
+		wall_bitmask |= left_cell << 7
+
+		if wall_bitmask == 255 {
+			parsed_wall_data[x + lvl_data.col_count * y] = u8(WallType.Empty)
+			continue
+		}
 
 		result_mask, ok := wall_bitmask_map[wall_bitmask]
 
-		if result_mask == 255 {
-			parsed_wall_data[x + lvl_data.col_count * y] = WallType.Empty
+		if !ok {
+			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b", #location(result_mask), result_mask)
 		}
 
-		parsed_wall_data[x + lvl_data.col_count * y] = 
+		parsed_wall_data[x + lvl_data.col_count * y] = result_mask
 
 	}
 
@@ -386,7 +445,7 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	node_map, pacman_spawn, ghost_spawns := first_parse_stage(node_allocator, lvl_data)
 	pellets := second_parse_stage(lvl_data, &node_map)
-	third_parse_stage(lvl_data)
+	wall_type_data := third_parse_stage(lvl_data)
 
 	reserve(&level.nodes, len(node_map))
 
@@ -396,6 +455,7 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	level.pellets = pellets
 
+	level.wall_data = wall_type_data
     level.node_vao_id, _ = Ent.create_debug_nodes_buffer(level.nodes)
     level.pellets_vao_id, _, level.pellets_ssbo = Ent.create_pellets_buffer(level.pellets)
 	level.pacman_spawn = pacman_spawn
