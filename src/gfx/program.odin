@@ -173,7 +173,7 @@ get_uniform_location :: proc(using program: ^Program, name: cstring) -> i32 {
 
 set_uniform_1i :: proc {
     set_uniform_1i_i32,
-    set_uniform_1i_int 
+    set_uniform_1i_int,
 }
 
 set_uniform_1i_i32 :: proc(using program: ^Program, name: cstring, value: i32) {
@@ -184,10 +184,18 @@ set_uniform_1i_int :: proc(using program: ^Program, name: cstring, value: int) {
     GL.Uniform1i(get_uniform_location(program, name), i32(value))
 }
 
+set_uniform_1u_u32 :: proc(using program: ^Program, name: cstring, value: u32) {
+    GL.Uniform1ui(get_uniform_location(program, name), (value))
+}
+
+set_uniform_2u_u32 :: proc(using program: ^Program, name: cstring, v0: u32, v1: u32) {
+    GL.Uniform2ui(get_uniform_location(program, name), v0, v1)
+}
+
 
 set_uniform_2f :: proc {
     set_uniform_2f_float,
-    set_uniform_2f_vec
+    set_uniform_2f_vec,
 }
 
 set_uniform_1f :: proc(using program: ^Program, name: cstring, value: f32) {
@@ -200,4 +208,24 @@ set_uniform_2f_float :: proc(using program: ^Program, name: cstring, value_1: f3
 
 set_uniform_2f_vec :: proc(using program: ^Program, name: cstring, vec: linalg.Vector2f32) {
     GL.Uniform2f(get_uniform_location(program, name), vec.x, vec.y)
+}
+
+bind_program :: proc(using program: ^Program) {
+	GL.UseProgram(program.id)
+}
+
+unbind_program :: proc() {
+	GL.UseProgram(0)
+}
+
+destroy_program :: proc(using program: ^Program) {
+	GL.DeleteProgram(program.id)
+}
+
+dispatch_compute :: #force_inline proc(num_groups_x, num_groups_y, num_groups_z: u32) {
+	GL.DispatchCompute(num_groups_x, num_groups_y, num_groups_z)
+}
+
+memory_barrier :: #force_inline proc(barriers: u32) {
+	GL.MemoryBarrier(barriers)
 }

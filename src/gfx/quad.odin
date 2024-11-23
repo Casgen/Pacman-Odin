@@ -1,12 +1,17 @@
 package gfx
 
 import GL "vendor:OpenGL"
+import "core:math/linalg"
 
 Quad :: struct {
     vao_id, vbo_id, ebo_id: u32
 }
 
-create_quad :: proc(color: [4]f32) -> Quad {
+create_quad_color :: proc (color: [4]f32) -> Quad {
+	return create_quad_color_scale(color, {1.0, 1.0});
+}
+
+create_quad_color_scale :: proc(color: [4]f32, scale: linalg.Vector2f32) -> Quad {
 
     quad: Quad
 
@@ -61,6 +66,11 @@ create_quad :: proc(color: [4]f32) -> Quad {
     GL.BindVertexArray(0)
 
     return quad
+}
+
+create_quad :: proc {
+	create_quad_color_scale,
+	create_quad_color,
 }
 
 draw_quad :: proc(using quad: ^Quad, program_id: u32) {

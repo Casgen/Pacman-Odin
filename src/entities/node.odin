@@ -1,6 +1,6 @@
 package entities
 
-import LinAlg "core:math/linalg"
+import "core:math/linalg"
 import SDL "vendor:sdl2"
 import GL "vendor:OpenGL"
 import gfx "../gfx"
@@ -16,7 +16,7 @@ Direction :: enum i8 {
 
 Node :: struct {
 	neighbors: [5]^Node,
-	position:  LinAlg.Vector2f32,
+	position:  linalg.Vector2f32,
 	is_portal: bool,
 	is_ghost:  bool,
 }

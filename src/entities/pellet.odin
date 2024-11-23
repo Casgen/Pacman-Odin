@@ -47,7 +47,7 @@ create_pellets_buffer :: proc(pellets: [dynamic]Pellet) -> (vao_id, vbo_id: u32,
 
     gfx.generate_layout(&vertex_builder, vbo_id, vao_id)
 
-    return vao_id, vbo_id, gfx.create_ssbo_ptr(&visibility[0], len(visibility) * 4, 0)
+    return vao_id, vbo_id, gfx.create_ssbo(&visibility[0], len(visibility) * 4)
 }
 
 set_visibility :: proc(pellet: ^Pellet, array_index: int, ssbo: gfx.SSBO, is_visible: bool) {
@@ -58,7 +58,7 @@ set_visibility :: proc(pellet: ^Pellet, array_index: int, ssbo: gfx.SSBO, is_vis
     
     cast_visible: u32 = u32(pellet.is_visible)
 
-    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, ssbo.binding, ssbo.id)
+    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, ssbo.id)
     GL.BufferSubData(GL.SHADER_STORAGE_BUFFER, array_index * 4, 4, &cast_visible)
     GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, 0)
 }
@@ -71,7 +71,7 @@ draw_pellets :: proc(count: int, ssbo: gfx.SSBO, vao_id, program_id: u32) {
     GL.BindVertexArray(vao_id)
 
     GL.DrawArrays(GL.POINTS, 0, i32(count))
-    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, ssbo.binding, ssbo.id)
+    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, ssbo.id)
 
     GL.BindVertexArray(0)
 }

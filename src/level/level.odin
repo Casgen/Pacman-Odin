@@ -18,24 +18,23 @@ import Log "../logger"
 NODE_BUFFER_SIZE_BYTES :: size_of(Ent.Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Ent.Pellet) * 1024
 
-imat3 :: distinct matrix[3, 3]i32
-
 Level :: struct {
-	node_arena:         virtual.Arena,
-	node_buffer:        []u8,
-	wall_data:			[dynamic]u8,
-	nodes:              [dynamic]^Ent.Node,
-	pellets:            [dynamic]Ent.Pellet,
-    pellets_vao_id:     u32,
-    pellets_ssbo:       gfx.SSBO,
-    node_vao_id:        u32,
-	pacman_spawn:		^Ent.Node,
-	ghost_spawns:		[dynamic]^Ent.Node,
+	node_arena:				virtual.Arena,
+	node_buffer:        	[]u8,
+	wall_data:				[dynamic]u32,
+	nodes:              	[dynamic]^Ent.Node,
+	pellets:            	[dynamic]Ent.Pellet,
+    pellets_vao_id:     	u32,
+    pellets_ssbo:       	gfx.SSBO,
+    node_vao_id:        	u32,
+	pacman_spawn:			^Ent.Node,
+	ghost_spawns:			[dynamic]^Ent.Node,
+	col_count, row_count:	i32
 }
 
 LevelData :: struct {
 	data:					string,
-	wall_data:				[dynamic]u8,
+	wall_data:				[dynamic]u32,
 	row_count, col_count:	int,
 }
 
@@ -139,7 +138,7 @@ wall_bitmask_map := map[u8]u8{
 }
 
 // Read the 'Wall types.md' file for the diagram references
-WallType :: enum u8 {
+WallType :: enum {
 	Empty				=  0,
 	FourCorner			=  1,
 	ThreeCorner 		=  2,
@@ -184,14 +183,18 @@ load_level :: proc(filename: string) -> ^Level {
 	lvl_data, err := read_level(filename)
 	assert(err == ParseError.None)
 
-	return parse_level(&lvl_data)
+	lvl := parse_level(&lvl_data) 
+
+	build_maze(lvl);
+
+	return lvl
 }
 
 data_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u8 {
 	return data[x + col_count * y]
 }
 
-wall_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u8 {
+wall_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u32 {
 	return wall_data[x + col_count * y]
 }
 
@@ -365,9 +368,9 @@ second_parse_stage :: proc(
 	return pellets
 }
 
-third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
+third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u32 {
 
-	parsed_wall_data := make([dynamic]u8, len(lvl_data.wall_data))
+	parsed_wall_data := make([dynamic]u32, len(lvl_data.wall_data))
 
 	for i in 0..<len(lvl_data.wall_data) {
 
@@ -377,7 +380,7 @@ third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
 		s22 := wall_at(lvl_data, x, y) // Center cell
 
 		if s22 != 1 { 
-			parsed_wall_data[x + lvl_data.col_count * y] = u8(WallType.Empty)
+			parsed_wall_data[x + lvl_data.col_count * y] = u32(WallType.Empty)
 			continue;
 		}
 
@@ -387,15 +390,15 @@ third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
 		y_plus_one := min(y + 1, lvl_data.row_count - 1)
 		y_minus_one := max(y - 1, 0);
 
-		top_left_cell := wall_at(lvl_data, x_minus_one, y_minus_one)
+		top_left_cell	:= wall_at(lvl_data, x_minus_one, y_minus_one)
 		top_center_cell := wall_at(lvl_data, x, y_minus_one)
-		top_right_cell := wall_at(lvl_data, x_plus_one, y_minus_one)
+		top_right_cell	:= wall_at(lvl_data, x_plus_one, y_minus_one)
 
 		right_cell := wall_at(lvl_data, x_plus_one, y)
 
-		bottom_right_cell := wall_at(lvl_data, x_plus_one, y_plus_one)
-		bottom_center_cell := wall_at(lvl_data, x, y_plus_one)
-		bottom_left_cell := wall_at(lvl_data, x_minus_one, y_plus_one)
+		bottom_right_cell	:= wall_at(lvl_data, x_plus_one, y_plus_one)
+		bottom_center_cell	:= wall_at(lvl_data, x, y_plus_one)
+		bottom_left_cell	:= wall_at(lvl_data, x_minus_one, y_plus_one)
 
 		left_cell := wall_at(lvl_data, x_minus_one, y)
 
@@ -409,17 +412,17 @@ third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u8 {
 		wall_bitmask |= left_cell << 7
 
 		if wall_bitmask == 255 {
-			parsed_wall_data[x + lvl_data.col_count * y] = u8(WallType.Empty)
+			parsed_wall_data[x + lvl_data.col_count * y] = u32(WallType.Empty)
 			continue
 		}
 
-		result_mask, ok := wall_bitmask_map[wall_bitmask]
+		result_mask, ok := wall_bitmask_map[u8(wall_bitmask)]
 
 		if !ok {
 			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b", #location(result_mask), result_mask)
 		}
 
-		parsed_wall_data[x + lvl_data.col_count * y] = result_mask
+		parsed_wall_data[x + lvl_data.col_count * y] = u32(result_mask)
 
 	}
 
@@ -433,7 +436,6 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	level.node_buffer = make([]u8, size_of(Ent.Node) * 512)
 
-
 	err := virtual.arena_init_buffer(&level.node_arena, level.node_buffer)
 
 	if err != nil {
@@ -441,7 +443,6 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 	}
 
 	node_allocator := virtual.arena_allocator(&level.node_arena)
-
 
 	node_map, pacman_spawn, ghost_spawns := first_parse_stage(node_allocator, lvl_data)
 	pellets := second_parse_stage(lvl_data, &node_map)
@@ -460,11 +461,48 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
     level.pellets_vao_id, _, level.pellets_ssbo = Ent.create_pellets_buffer(level.pellets)
 	level.pacman_spawn = pacman_spawn
 	level.ghost_spawns = ghost_spawns
+	level.col_count = i32(lvl_data.col_count)
+	level.row_count = i32(lvl_data.row_count)
 
-	fmt.printfln("Pacman Spawn: %d", level.pacman_spawn)
-	fmt.printfln("Ghost Spawns: %d", level.ghost_spawns)
+	// fmt.printfln("Pacman Spawn: %d", level.pacman_spawn)
+	// fmt.printfln("Ghost Spawns: %d", level.ghost_spawns)
 
 	return level
+}
+
+build_maze :: proc(lvl: ^Level) {
+
+	maze_ssbo := gfx.create_ssbo(lvl.wall_data)
+	maze_builder_prog := gfx.create_program("res/shaders/maze/")
+
+	maze_tex_width := gfx.SPRITESHEET_BLOCK_SIZE * lvl.col_count
+	maze_tex_height := gfx.SPRITESHEET_BLOCK_SIZE * lvl.row_count
+
+	maze_tex := gfx.create_texture_2d(maze_tex_width, maze_tex_height)
+
+	gfx.bind_program(&maze_builder_prog)
+
+	gfx.bind_ssbo_base(maze_ssbo, 0);
+	gfx.bind_spritesheet_as_image(1)
+	gfx.bind_texture_as_image(maze_tex, 2)
+
+	gfx.set_uniform_2u_u32(
+		&maze_builder_prog,
+		"u_spritesheet_dims",
+		u32(gfx.get_spritesheet().tex.width),
+		u32(gfx.get_spritesheet().tex.height)
+	)
+
+	gfx.set_uniform_2u_u32(&maze_builder_prog, "u_spritesheet_dims",
+		u32(gfx.get_spritesheet().tex.width), u32(gfx.get_spritesheet().tex.height))
+
+	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_block_size", u32(gfx.SPRITESHEET_BLOCK_SIZE))
+
+	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_row_count", u32(lvl.row_count))
+	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_col_count", u32(lvl.col_count))
+
+	gfx.dispatch_compute(u32(lvl.col_count), u32(lvl.row_count), 1)
+	gfx.memory_barrier(GL.SHADER_IMAGE_ACCESS_BARRIER_BIT)
 }
 
 destroy_level :: proc(level: ^Level) {
@@ -587,7 +625,7 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 	}
 
 	data := strings.concatenate(lines)
-	wall_data: [dynamic]u8 = make([dynamic]u8, row_count * col_count)
+	wall_data: [dynamic]u32 = make([dynamic]u32, row_count * col_count)
 
 	portal_count_map: map[rune]u32
 

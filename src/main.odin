@@ -26,7 +26,6 @@ debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, leng
     libc.fprintf(libc.stdout,"-------------------------")
     libc.fprintf(libc.stdout,"Debug Message (%d): %s\n", id, message)
 
-
     switch source
     {
     case GL.DEBUG_SOURCE_API: libc.fprintf(libc.stdout,"Source: API")
@@ -65,7 +64,11 @@ debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, leng
 
 init_sdl_with_gl :: proc() {
 
-	assert(SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK | SDL.INIT_EVENTS) == 0, SDL.GetErrorString())
+	init_result := SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK | SDL.INIT_EVENTS)
+
+	if (init_result != 0) {
+		panic(SDL.GetErrorString())
+	}
 
 	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_PROFILE_MASK, auto_cast (SDL.GLprofile.CORE))
 	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_MAJOR_VERSION, 4)
@@ -105,8 +108,8 @@ init_sdl_with_gl :: proc() {
 
 main :: proc() {
 	init_sdl_with_gl()
+    gfx.load_spritesheet("./res/spritesheet.png")
 
-    spritesheet := gfx.load_spritesheet("res/spritesheet_new.png")
 	level := Level.load_level("res/mazetest.txt")
 
 	pacman := entities.create_pacman(level.nodes[0])
@@ -158,7 +161,7 @@ main :: proc() {
         gfx.ogl_draw_debug_points(len(level.nodes), level.node_vao_id, point_program.id) 
 
         GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.id)
-        GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.binding, level.pellets_ssbo.id)
+        GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, level.pellets_ssbo.id)
         gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, pellets_program.id) 
 
         entities.ogl_debug_render_player(&pacman, &program)

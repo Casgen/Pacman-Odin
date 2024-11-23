@@ -1,0 +1,46 @@
+#version 450
+
+// This compute shader allows building a maze from the wall data
+// parsed in the third stage. This shader takes the interpreted data with walls
+// and tries to construct a maze texture. The texture is constructed with the
+// spritesheet provided. Each workgroup should work on 1 cell (a wall block).
+// The individual invocations in the workgroup work with the different pixels
+// of the wall sprites in the spritesheet.
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (std430, binding = 0) buffer WallData {
+	uint walls[];
+};
+
+layout (rgba32f, binding = 1) uniform image2D spritesheet;
+layout (rgba32f, binding = 2) uniform image2D maze_texture;
+
+uniform uvec2 u_spritesheet_dims;
+uniform uint u_block_size;
+
+uniform uint u_row_count;
+uniform uint u_col_count;
+
+// TODO: Check if the shader is working with RenderDoc
+void main() {
+
+	const uint wall_index = gl_NumWorkGroups.x * gl_WorkGroupID.y + gl_WorkGroupID.x;
+	const uint wall_cell = walls[wall_index];
+
+	if (wall_cell == 0) {
+		return;
+	}
+
+	const uint wall_type = wall_cell & 0x0000000F;
+	const uint rotation = wall_cell >> 4;
+
+	uvec2 spritesheet_coord = uvec2(u_block_size) * uvec2(rotation, wall_type - 1) + gl_LocalInvocationID.xy;
+	spritesheet_coord.y = u_spritesheet_dims.y - spritesheet_coord.y - 1;
+
+	uvec2 tex_coord = gl_WorkGroupID.xy * uvec2(u_block_size) + gl_LocalInvocationID.xy;
+	tex_coord.y = u_block_size * u_row_count - tex_coord.y;
+
+	const vec4 wall_pixel = imageLoad(spritesheet, ivec2(spritesheet_coord));
+	imageStore(maze_texture, ivec2(tex_coord), wall_pixel);
+}
