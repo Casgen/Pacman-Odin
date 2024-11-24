@@ -48,3 +48,8 @@ bind_ssbo_base :: proc (using ssbo: SSBO, binding: u32) {
 bind_ssbo :: proc (using ssbo: SSBO, binding: u32) {
 	GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, id)
 }
+
+delete_ssbo :: proc (ssbo: SSBO) {
+	ptr := [1]u32{ssbo.id}
+	GL.DeleteBuffers(1, &ptr[0])
+}

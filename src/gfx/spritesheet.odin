@@ -35,4 +35,7 @@ bind_spritesheet :: proc(slot: u32) {
     GL.BindTexture(GL.TEXTURE_2D, spritesheet.tex.id)
 }
 
-
+destroy_spreadsheet :: proc() {
+	ptr: [1]u32 = [1]u32{spritesheet.tex.id}
+	GL.DeleteTextures(1, &ptr[0])
+}

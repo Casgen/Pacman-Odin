@@ -11,15 +11,13 @@ Texture2D :: struct {
 	width, height: i32,
 }
 
-
-
 // By default, loads and creates an image with the RGBA colors.
 // Don't forget to bind the texture afterwards!
 // 
 // TODO: Implement further options for interpreting more formats!
 create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 
-    stbi.set_flip_vertically_on_load_thread(true)
+    stbi.set_flip_vertically_on_load_thread(false)
 
     img_width: i32
     img_height: i32
@@ -75,7 +73,7 @@ create_texture_2d :: proc {
 	create_texture_2d_empty,
 }
 
-bind_texture :: proc(using texture: Texture2D, slot: u32) {
+bind_texture_2d :: proc(using texture: Texture2D, slot: u32) {
     GL.ActiveTexture(GL.TEXTURE0 + slot)
     GL.BindTexture(GL.TEXTURE_2D, id)
 }
@@ -88,7 +86,16 @@ bind_texture_as_image :: proc(using texture: Texture2D, binding: u32) {
     GL.BindImageTexture(binding, id, 0, GL.FALSE, 0, GL.READ_WRITE, GL.RGBA32F);
 }
 
-unbind_texture :: proc(using texture: Texture2D) {
+unbind_texture_2d :: proc() {
 	GL.BindTexture(GL.TEXTURE_2D, 0)
+}
+
+destroy_texture_2d :: proc(using tex: ^Texture2D) {
+	ptr: [1]u32 = [1]u32{tex.id}
+	GL.DeleteTextures(1, &ptr[0])
+
+	tex.id = 0
+	tex.width = 0
+	tex.height = 0
 }
 

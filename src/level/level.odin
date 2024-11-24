@@ -22,6 +22,7 @@ Level :: struct {
 	node_arena:				virtual.Arena,
 	node_buffer:        	[]u8,
 	wall_data:				[dynamic]u32,
+	maze_tex:				gfx.Texture2D,
 	nodes:              	[dynamic]^Ent.Node,
 	pellets:            	[dynamic]Ent.Pellet,
     pellets_vao_id:     	u32,
@@ -48,9 +49,9 @@ ObjectType :: enum u8 {
 /*
 The bits are representing the neighbors of the examined cell.
 
-|1.|2.|3.|
-|8.|X |4.|
-|7.|6.|5.|
+|0.|1.|2.|
+|7.|X |3.|
+|6.|5.|4.|
 */
 
 wall_bitmask_map := map[u8]u8{
@@ -470,7 +471,7 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 	return level
 }
 
-build_maze :: proc(lvl: ^Level) {
+build_maze :: proc(lvl: ^Level) -> gfx.Texture2D {
 
 	maze_ssbo := gfx.create_ssbo(lvl.wall_data)
 	maze_builder_prog := gfx.create_program("res/shaders/maze/")
@@ -482,7 +483,7 @@ build_maze :: proc(lvl: ^Level) {
 
 	gfx.bind_program(&maze_builder_prog)
 
-	gfx.bind_ssbo_base(maze_ssbo, 0);
+	gfx.bind_ssbo_base(maze_ssbo, 0)
 	gfx.bind_spritesheet_as_image(1)
 	gfx.bind_texture_as_image(maze_tex, 2)
 
@@ -503,17 +504,39 @@ build_maze :: proc(lvl: ^Level) {
 
 	gfx.dispatch_compute(u32(lvl.col_count), u32(lvl.row_count), 1)
 	gfx.memory_barrier(GL.SHADER_IMAGE_ACCESS_BARRIER_BIT)
+
+	gfx.delete_ssbo(maze_ssbo)
+	gfx.destroy_program(&maze_builder_prog)
+	gfx.unbind_texture_2d()
+
+	return maze_tex;
 }
 
-destroy_level :: proc(level: ^Level) {
+destroy_level :: proc(lvl: ^Level) {
 
-	virtual.arena_destroy(&level.node_arena)
+	gfx.delete_ssbo(lvl.pellets_ssbo)
+	gfx.destroy_texture_2d(&lvl.maze_tex)
+
+	virtual.arena_destroy(&lvl.node_arena)
+
+	node_vao_ptr: [1]u32 = [1]u32{lvl.node_vao_id}
+	GL.DeleteVertexArrays(1, &node_vao_ptr[0])
+
+	pellets_vao_ptr: [1]u32 = [1]u32{lvl.pellets_vao_id}
+	GL.DeleteVertexArrays(1, &pellets_vao_ptr[0])
     
-    delete(level.node_buffer)
-	delete(level.nodes)
-	delete(level.pellets)
+    delete(lvl.node_buffer)
+	delete(lvl.nodes)
+	delete(lvl.wall_data)
+	delete(lvl.pellets)
 
-	free(level)
+	lvl.ghost_spawns = nil
+	lvl.pacman_spawn = nil
+	
+	lvl.col_count = -1
+	lvl.row_count = -1
+
+	free(lvl)
 }
 
 connect_nodes :: proc(nodes: [dynamic]^Ent.Node, connect_in_col: bool) {
@@ -657,4 +680,3 @@ read_level :: proc(filename: string) -> (LevelData, ParseError) {
 
 	return {data, wall_data, row_count, col_count}, .None
 }
-

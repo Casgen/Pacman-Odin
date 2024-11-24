@@ -138,11 +138,18 @@ main :: proc() {
 
 		#partial switch event.type {
 
-        case SDL.EventType.QUIT:
-            break game_loop
+			case SDL.EventType.QUIT:
+				break game_loop
 
-		case SDL.EventType.KEYDOWN:
-			entities.update_direction(&pacman, event.key.keysym.scancode)
+			case SDL.EventType.KEYDOWN:
+				key := event.key.keysym.scancode
+
+				switch {
+					case key >= SDL.Scancode.RIGHT && key <= SDL.Scancode.UP:
+						entities.update_direction(&pacman, event.key.keysym.scancode)
+					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
+						break game_loop
+				}
 		}
 
 
@@ -173,4 +180,15 @@ main :: proc() {
 
         delta_time = cast(f32)time.duration_milliseconds(time.stopwatch_duration(stopwatch) - start_time)
 	}
+
+	// Quit the game
+	gfx.unbind_program()
+	gfx.unbind_texture_2d()
+	gfx.destroy_program(&pellets_program)
+	gfx.destroy_program(&point_program)
+	gfx.destroy_program(&program)
+	gfx.destroy_spreadsheet()
+
+	SDL.DestroyWindow(app.window)
+	SDL.DestroyRenderer(app.renderer)
 }
