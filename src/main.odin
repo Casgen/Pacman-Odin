@@ -132,25 +132,30 @@ main :: proc() {
 
     GL.Enable(GL.PROGRAM_POINT_SIZE)
 
-	game_loop: for {
+	game_loop : for {
 
         start_time = time.stopwatch_duration(stopwatch)
 
-		#partial switch event.type {
+		// Don't forget to call PollEvent in a while loop!
+		// Otherwise, the events won't register immediately when focusing the window.
+		for (SDL.PollEvent(&event) == true) {
+			#partial switch event.type {
 
-			case SDL.EventType.QUIT:
-				break game_loop
+				case SDL.EventType.QUIT:
+					break game_loop
 
-			case SDL.EventType.KEYDOWN:
-				key := event.key.keysym.scancode
+				case SDL.EventType.KEYDOWN:
+					key := event.key.keysym.scancode
 
-				switch {
-					case key >= SDL.Scancode.RIGHT && key <= SDL.Scancode.UP:
-						entities.update_direction(&pacman, event.key.keysym.scancode)
-					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
-						break game_loop
-				}
+					switch {
+						case key >= SDL.Scancode.RIGHT && key <= SDL.Scancode.UP:
+							entities.update_direction(&pacman, event.key.keysym.scancode)
+						case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
+							break game_loop
+					}
+			}
 		}
+
 
 
 		entities.update_pacman_pos(&pacman, delta_time)
@@ -176,7 +181,6 @@ main :: proc() {
 
         SDL.GL_SwapWindow(app.window)
 
-		SDL.PollEvent(&event)
 
         delta_time = cast(f32)time.duration_milliseconds(time.stopwatch_duration(stopwatch) - start_time)
 	}
@@ -192,3 +196,4 @@ main :: proc() {
 	SDL.DestroyWindow(app.window)
 	SDL.DestroyRenderer(app.renderer)
 }
+
