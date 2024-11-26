@@ -19,18 +19,18 @@ NODE_BUFFER_SIZE_BYTES :: size_of(Ent.Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Ent.Pellet) * 1024
 
 Level :: struct {
-	node_arena:				virtual.Arena,
-	node_buffer:        	[]u8,
-	wall_data:				[dynamic]u32,
-	maze_tex:				gfx.Texture2D,
-	nodes:              	[dynamic]^Ent.Node,
-	pellets:            	[dynamic]Ent.Pellet,
-    pellets_vao_id:     	u32,
-    pellets_ssbo:       	gfx.SSBO,
-    node_vao_id:        	u32,
-	pacman_spawn:			^Ent.Node,
-	ghost_spawns:			[dynamic]^Ent.Node,
-	col_count, row_count:	i32
+	node_arena:		virtual.Arena,
+	node_buffer:    []u8,
+	nodes:          [dynamic]^Ent.Node,
+	maze:			Maze,
+	pellets:        [dynamic]Ent.Pellet,
+    pellets_vao_id: u32,
+    pellets_ssbo:   gfx.SSBO,
+    node_vao_id:    u32,
+	pacman_spawn:	^Ent.Node,
+	ghost_spawns:	[dynamic]^Ent.Node,
+	col_count:		i32,
+	row_count:		i32
 }
 
 LevelData :: struct {
@@ -44,123 +44,6 @@ ObjectType :: enum u8 {
 	Node        = 1,
 	Empty_Space = 2,
 	Ghost_Gate  = 3,
-}
-
-/*
-The bits are representing the neighbors of the examined cell.
-
-|0.|1.|2.|
-|7.|X |3.|
-|6.|5.|4.|
-*/
-
-wall_bitmask_map := map[u8]u8{
-	0b00000000 = u8(WallType.Block),
-
-	0b00000001 = u8(WallType.Block),
-	0b00000100 = u8(WallType.Block),
-	0b00010000 = u8(WallType.Block),
-	0b01000000 = u8(WallType.Block),
-
-	0b10101010 = u8(WallType.FourCorner),
-
-	0b10101010 = u8(WallType.ThreeCorner),
-	0b10101110 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg90) << 4,
-	0b10111010 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg180) << 4,
-	0b11101010 = u8(WallType.ThreeCorner) | u8(WallOrientation.Deg270) << 4,
-
-	0b10000011 = u8(WallType.Bulge),
-	0b00001110 = u8(WallType.Bulge) | u8(WallOrientation.Deg90) << 4,
-	0b00111000 = u8(WallType.Bulge) | u8(WallOrientation.Deg180) << 4,
-	0b11100000 = u8(WallType.Bulge) | u8(WallOrientation.Deg270) << 4,
-
-	0b11100011 = u8(WallType.Wall),
-	0b10001111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
-	0b00111110 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
-	0b11111000 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
-
-	0b11110011 = u8(WallType.Wall),
-	0b11001111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
-	0b00111111 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
-	0b11111100 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
-
-	0b11100111 = u8(WallType.Wall),
-	0b10011111 = u8(WallType.Wall) | u8(WallOrientation.Deg90) << 4,
-	0b01111110 = u8(WallType.Wall) | u8(WallOrientation.Deg180) << 4,
-	0b11111001 = u8(WallType.Wall) | u8(WallOrientation.Deg270) << 4,
-
-	0b11111010 = u8(WallType.TwoCorner),
-	0b11101011 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg90) << 4,
-	0b00101111 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg180) << 4,
-	0b01011111 = u8(WallType.TwoCorner) | u8(WallOrientation.Deg270) << 4,
-
-	0b11111011 = u8(WallType.OneCorner),
-	0b11101111 = u8(WallType.OneCorner) | u8(WallOrientation.Deg90) << 4,
-	0b10111111 = u8(WallType.OneCorner) | u8(WallOrientation.Deg180) << 4,
-	0b11111110 = u8(WallType.OneCorner) | u8(WallOrientation.Deg270) << 4,
-
-	0b00100010 = u8(WallType.Column),
-	0b10001000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
-
-	0b00110010 = u8(WallType.Column),
-	0b11001000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
-	0b00100011 = u8(WallType.Column),
-	0b10001100 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
-
-	0b01100010 = u8(WallType.Column),
-	0b10001001 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
-	0b00100110 = u8(WallType.Column),
-	0b10011000 = u8(WallType.Column) | u8(WallOrientation.Deg90) << 4,
-
-	0b10100000 = u8(WallType.LShaped),
-	0b10000010 = u8(WallType.LShaped) | u8(WallOrientation.Deg90) << 4,
-	0b00001010 = u8(WallType.LShaped) | u8(WallOrientation.Deg180) << 4,
-	0b00101000 = u8(WallType.LShaped) | u8(WallOrientation.Deg270) << 4,
-
-	0b00100000 = u8(WallType.Tip),
-	0b10000000 = u8(WallType.Tip) | u8(WallOrientation.Deg90) << 4,
-	0b00000010 = u8(WallType.Tip) | u8(WallOrientation.Deg180) << 4,
-	0b00001000 = u8(WallType.Tip) | u8(WallOrientation.Deg270) << 4,
-
-	0b10001010 = u8(WallType.TShaped),
-	0b00101010 = u8(WallType.TShaped) | u8(WallOrientation.Deg90) << 4,
-	0b10101000 = u8(WallType.TShaped) | u8(WallOrientation.Deg180) << 4,
-	0b10100010 = u8(WallType.TShaped) | u8(WallOrientation.Deg270) << 4,
-
-	0b10001011 = u8(WallType.RightCornerAndWall),
-	0b00101110 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg90) << 4,
-	0b10111000 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg180) << 4,
-	0b11100010 = u8(WallType.RightCornerAndWall) | u8(WallOrientation.Deg270) << 4,
-
-	0b10001110 = u8(WallType.LeftCornerAndWall),
-	0b00111010 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg90) << 4,
-	0b11101000 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg180) << 4,
-	0b10100011 = u8(WallType.LeftCornerAndWall) | u8(WallOrientation.Deg270) << 4,
-}
-
-// Read the 'Wall types.md' file for the diagram references
-WallType :: enum {
-	Empty				=  0,
-	FourCorner			=  1,
-	ThreeCorner 		=  2,
-	Bulge				=  3,
-	Wall				=  4,
-	TwoCorner			=  5,
-	OneCorner			=  6,
-	Column				=  7,
-	LShaped				=  8,
-	Tip					=  9,
-	TShaped				= 10,
-	RightCornerAndWall	= 11,
-	LeftCornerAndWall	= 12,
-	Block				= 13,
-}
-
-WallOrientation :: enum u8 {
-	Deg0	= 0,
-	Deg90	= 1,
-	Deg180	= 2,
-	Deg270	= 3,
 }
 
 ParseError :: enum {
@@ -185,19 +68,11 @@ load_level :: proc(filename: string) -> ^Level {
 	assert(err == ParseError.None)
 
 	lvl := parse_level(&lvl_data) 
-
-	build_maze(lvl);
+	lvl.maze = create_maze(&lvl_data);
 
 	return lvl
 }
 
-data_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u8 {
-	return data[x + col_count * y]
-}
-
-wall_at :: #force_inline proc(using lvl_data: ^LevelData, x: int, y: int) -> u32 {
-	return wall_data[x + col_count * y]
-}
 
 // Extracts the nodes and connects them horizontally
 first_parse_stage :: proc(
@@ -369,68 +244,6 @@ second_parse_stage :: proc(
 	return pellets
 }
 
-third_parse_stage :: proc(lvl_data: ^LevelData) -> [dynamic]u32 {
-
-	parsed_wall_data := make([dynamic]u32, len(lvl_data.wall_data))
-
-	for i in 0..<len(lvl_data.wall_data) {
-
-		x := i % lvl_data.col_count
-		y := i / lvl_data.col_count
-		
-		s22 := wall_at(lvl_data, x, y) // Center cell
-
-		if s22 != 1 { 
-			parsed_wall_data[x + lvl_data.col_count * y] = u32(WallType.Empty)
-			continue;
-		}
-
-		x_plus_one := min(x + 1, lvl_data.col_count - 1)
-		x_minus_one := max(x - 1, 0);
-
-		y_plus_one := min(y + 1, lvl_data.row_count - 1)
-		y_minus_one := max(y - 1, 0);
-
-		top_left_cell	:= wall_at(lvl_data, x_minus_one, y_minus_one)
-		top_center_cell := wall_at(lvl_data, x, y_minus_one)
-		top_right_cell	:= wall_at(lvl_data, x_plus_one, y_minus_one)
-
-		right_cell := wall_at(lvl_data, x_plus_one, y)
-
-		bottom_right_cell	:= wall_at(lvl_data, x_plus_one, y_plus_one)
-		bottom_center_cell	:= wall_at(lvl_data, x, y_plus_one)
-		bottom_left_cell	:= wall_at(lvl_data, x_minus_one, y_plus_one)
-
-		left_cell := wall_at(lvl_data, x_minus_one, y)
-
-		wall_bitmask := top_left_cell
-		wall_bitmask |= top_center_cell << 1
-		wall_bitmask |= top_right_cell << 2
-		wall_bitmask |= right_cell << 3
-		wall_bitmask |= bottom_right_cell << 4
-		wall_bitmask |= bottom_center_cell << 5
-		wall_bitmask |= bottom_left_cell << 6
-		wall_bitmask |= left_cell << 7
-
-		if wall_bitmask == 255 {
-			parsed_wall_data[x + lvl_data.col_count * y] = u32(WallType.Empty)
-			continue
-		}
-
-		result_mask, ok := wall_bitmask_map[u8(wall_bitmask)]
-
-		if !ok {
-			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b", #location(result_mask), result_mask)
-		}
-
-		parsed_wall_data[x + lvl_data.col_count * y] = u32(result_mask)
-
-	}
-
-	return parsed_wall_data
-}
-
-
 parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	level: ^Level = new(Level)
@@ -447,7 +260,6 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 
 	node_map, pacman_spawn, ghost_spawns := first_parse_stage(node_allocator, lvl_data)
 	pellets := second_parse_stage(lvl_data, &node_map)
-	wall_type_data := third_parse_stage(lvl_data)
 
 	reserve(&level.nodes, len(node_map))
 
@@ -456,8 +268,6 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 	}
 
 	level.pellets = pellets
-
-	level.wall_data = wall_type_data
     level.node_vao_id, _ = Ent.create_debug_nodes_buffer(level.nodes)
     level.pellets_vao_id, _, level.pellets_ssbo = Ent.create_pellets_buffer(level.pellets)
 	level.pacman_spawn = pacman_spawn
@@ -471,51 +281,10 @@ parse_level :: proc(lvl_data: ^LevelData) -> ^Level {
 	return level
 }
 
-build_maze :: proc(lvl: ^Level) -> gfx.Texture2D {
-
-	maze_ssbo := gfx.create_ssbo(lvl.wall_data)
-	maze_builder_prog := gfx.create_program("res/shaders/maze/")
-
-	maze_tex_width := gfx.SPRITESHEET_BLOCK_SIZE * lvl.col_count
-	maze_tex_height := gfx.SPRITESHEET_BLOCK_SIZE * lvl.row_count
-
-	maze_tex := gfx.create_texture_2d(maze_tex_width, maze_tex_height)
-
-	gfx.bind_program(&maze_builder_prog)
-
-	gfx.bind_ssbo_base(maze_ssbo, 0)
-	gfx.bind_spritesheet_as_image(1)
-	gfx.bind_texture_as_image(maze_tex, 2)
-
-	gfx.set_uniform_2u_u32(
-		&maze_builder_prog,
-		"u_spritesheet_dims",
-		u32(gfx.get_spritesheet().tex.width),
-		u32(gfx.get_spritesheet().tex.height)
-	)
-
-	gfx.set_uniform_2u_u32(&maze_builder_prog, "u_spritesheet_dims",
-		u32(gfx.get_spritesheet().tex.width), u32(gfx.get_spritesheet().tex.height))
-
-	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_block_size", u32(gfx.SPRITESHEET_BLOCK_SIZE))
-
-	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_row_count", u32(lvl.row_count))
-	gfx.set_uniform_1u_u32(&maze_builder_prog, "u_col_count", u32(lvl.col_count))
-
-	gfx.dispatch_compute(u32(lvl.col_count), u32(lvl.row_count), 1)
-	gfx.memory_barrier(GL.SHADER_IMAGE_ACCESS_BARRIER_BIT)
-
-	gfx.delete_ssbo(maze_ssbo)
-	gfx.destroy_program(&maze_builder_prog)
-	gfx.unbind_texture_2d()
-
-	return maze_tex;
-}
-
 destroy_level :: proc(lvl: ^Level) {
 
 	gfx.delete_ssbo(lvl.pellets_ssbo)
-	gfx.destroy_texture_2d(&lvl.maze_tex)
+	destroy_maze(&lvl.maze)
 
 	virtual.arena_destroy(&lvl.node_arena)
 
@@ -527,7 +296,6 @@ destroy_level :: proc(lvl: ^Level) {
     
     delete(lvl.node_buffer)
 	delete(lvl.nodes)
-	delete(lvl.wall_data)
 	delete(lvl.pellets)
 
 	lvl.ghost_spawns = nil
@@ -613,7 +381,6 @@ create_debug_gl_points :: proc(level: ^Level) {
 
     level.node_vao_id = vao_ids[0]
     level.pellets_vao_id = vao_ids[1]
-    
 }
 
 read_level :: proc(filename: string) -> (LevelData, ParseError) {

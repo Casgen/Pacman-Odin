@@ -106,7 +106,6 @@ create_program :: proc(shader_dir_path: string) -> Program  {
     return program
 }
 
-// This function will infer automatically the 
 create_shader :: proc(shader_path: string, shader_type: u32) -> (Shader, ShaderError) {
 
     shader: Shader
@@ -115,8 +114,10 @@ create_shader :: proc(shader_path: string, shader_type: u32) -> (Shader, ShaderE
     shader.type  = shader_type
 
     shader_file, read_ok := os.read_entire_file(shader_path)
+	defer delete(shader_file)
 
     cstring_content := strings.clone_to_cstring(transmute(string)shader_file)
+	defer delete(cstring_content)
 
     if !read_ok {
         fmt.eprintf("Failed to read file!: %s", shader_path)
@@ -146,9 +147,6 @@ create_shader :: proc(shader_path: string, shader_type: u32) -> (Shader, ShaderE
 
         return {}, .Failed_To_Compile
     }
-
-    delete(shader_file)
-    delete(cstring_content)
 
     return shader, .None
     
@@ -210,8 +208,17 @@ set_uniform_2f_vec :: proc(using program: ^Program, name: cstring, vec: linalg.V
     GL.Uniform2f(get_uniform_location(program, name), vec.x, vec.y)
 }
 
-bind_program :: proc(using program: ^Program) {
+bind_program :: proc {
+	bind_program_struct,
+	bind_program_id,
+}
+
+bind_program_struct :: proc(using program: ^Program) {
 	GL.UseProgram(program.id)
+}
+
+bind_program_id :: proc(id: u32) {
+	GL.UseProgram(id)
 }
 
 unbind_program :: proc() {
@@ -220,6 +227,7 @@ unbind_program :: proc() {
 
 destroy_program :: proc(using program: ^Program) {
 	GL.DeleteProgram(program.id)
+	delete(program.uniform_map)
 }
 
 dispatch_compute :: #force_inline proc(num_groups_x, num_groups_y, num_groups_z: u32) {

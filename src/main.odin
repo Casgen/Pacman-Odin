@@ -172,6 +172,8 @@ main :: proc() {
 
         gfx.ogl_draw_debug_points(len(level.nodes), level.node_vao_id, point_program.id) 
 
+		Level.draw_maze(&level.maze)
+
         GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.id)
         GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, level.pellets_ssbo.id)
         gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, pellets_program.id) 
@@ -180,7 +182,6 @@ main :: proc() {
         entities.ogl_debug_render_ghost(&ghost, &program)
 
         SDL.GL_SwapWindow(app.window)
-
 
         delta_time = cast(f32)time.duration_milliseconds(time.stopwatch_duration(stopwatch) - start_time)
 	}

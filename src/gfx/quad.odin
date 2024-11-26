@@ -16,10 +16,10 @@ create_quad_color_scale :: proc(color: [4]f32, scale: linalg.Vector2f32) -> Quad
     quad: Quad
 
     vertices := [?]f32{
-        -0.5, -0.5, 0.0,     0.0, 1.0,   color[0], color[1], color[2], color[3],
-        -0.5,  0.5, 0.0,     0.0, 0.0,   color[0], color[1], color[2], color[3],
-         0.5, -0.5, 0.0,     1.0, 1.0,   color[0], color[1], color[2], color[3],
-         0.5,  0.5, 0.0,     1.0, 0.0,   color[0], color[1], color[2], color[3],
+        scale.x * -0.5, scale.y * -0.5, 0.0,     0.0, 1.0,   color[0], color[1], color[2], color[3],
+        scale.x * -0.5, scale.y *  0.5, 0.0,     0.0, 0.0,   color[0], color[1], color[2], color[3],
+        scale.x *  0.5, scale.y * -0.5, 0.0,     1.0, 1.0,   color[0], color[1], color[2], color[3],
+        scale.x *  0.5, scale.y *  0.5, 0.0,     1.0, 0.0,   color[0], color[1], color[2], color[3],
     }
 
     GL.GenVertexArrays(1, &quad.vao_id) 
@@ -71,6 +71,15 @@ create_quad_color_scale :: proc(color: [4]f32, scale: linalg.Vector2f32) -> Quad
 create_quad :: proc {
 	create_quad_color_scale,
 	create_quad_color,
+}
+
+destroy_quad :: proc(quad: ^Quad) {
+
+	vao_ptr: [1]u32 = [1]u32{quad.vao_id}
+	GL.DeleteVertexArrays(1, &vao_ptr[0])
+
+	buffer_ptrs: [2]u32 = [2]u32{quad.vbo_id, quad.ebo_id}
+	GL.DeleteBuffers(2, &buffer_ptrs[0])
 }
 
 draw_quad :: proc(using quad: ^Quad, program_id: u32) {
