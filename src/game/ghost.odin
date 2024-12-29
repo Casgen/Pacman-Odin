@@ -1,4 +1,4 @@
-package entities
+package game
 
 import Consts "../constants"
 import "core:math"
@@ -8,6 +8,21 @@ import SDL "vendor:sdl2"
 import "core:fmt"
 import "../gfx"
 import GL "vendor:OpenGL"
+import "core:mem/virtual"
+import "../logger"
+
+
+// Set in millis
+@(private)
+GHOST_SCATTER_TIME : f32 : 7000.0
+
+@(private)
+GHOST_FREIGHT_TIME : f32 : 10000.0
+
+@(private)
+GHOST_CHASE_TIME : f32 : 20000.0
+
+GHOST_COLLISION_RADIUS : f32 : 5
 
 GhostState :: enum {
 	Scatter,
@@ -23,26 +38,41 @@ Ghost :: struct {
 	timer:              f32, // Represented in millis
 }
 
-
-create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> Ghost {
-
-	assert(starting_node != nil)
-
-	ghost: Ghost
+// Creates a new ghost entity
+ghost_create :: proc(game_memory: ^GameMemory) -> ^Ghost {
+	ghost, ok := arena_push_struct(&game_memory.transient_storage, Ghost)
+	assert(ok)
 
     ghost.entity = {}
     ghost.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
     ghost.quad = gfx.create_quad({1.0,0.0,1.0,1.0})
-	ghost.position = starting_node.position
-	ghost.current_node = starting_node
+	ghost.position = {0.0, 0.0}
 	ghost.speed = 0.05 * f32(Consts.TILE_WIDTH / 16)
-	ghost.collision_radius = 5
+	ghost.collision_radius = GHOST_COLLISION_RADIUS
 	ghost.target_node = nil
+	ghost.scatter_goal = {0.0, 0.0}
+	ghost.state = GhostState.Scatter
+    ghost.timer = 0
+
+
+	return ghost
+}
+
+// Initials the state of the ghost. Sets up its starting node, scatter goal (a position which in
+// the world which he should reach while in `GhostState.Scatter` mode), scatter time interval
+// And calculates it's next target node
+ghost_init :: proc(ghost: ^Ghost, starting_node: ^Node, scatter_goal: linalg.Vector2f32) {
+
+	assert(starting_node != nil)
+
+	ghost.current_node = starting_node
 	ghost.scatter_goal = scatter_goal
 	ghost.state = GhostState.Scatter
-    ghost.timer = 7000
+	ghost.timer = GHOST_SCATTER_TIME
 
 	valid_directions, valid_nodes := get_valid_neighbors(ghost.current_node)
+	defer delete(valid_directions)
+	defer delete(valid_nodes)
 
 	min_distance: f32 = math.F32_MAX
 	closest_node_index: int
@@ -58,12 +88,10 @@ create_ghost :: proc(starting_node: ^Node, scatter_goal: linalg.Vector2f32) -> G
 	ghost.target_node = valid_nodes[closest_node_index]
 	ghost.direction = valid_directions[closest_node_index]
 	ghost.velocity = velocity_map[valid_directions[closest_node_index]]
-
-	return ghost
 }
 
 
-update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
+ghost_update :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 
 	assert(ghost.target_node != nil)
 
@@ -74,7 +102,7 @@ update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 		return
 	}
 
-	if ghost.target_node.is_portal {
+	if NodeType.Portal in ghost.target_node.flags {
 		ghost.current_node = ghost.target_node.neighbors[Direction.Portal]
 		ghost.target_node = ghost.current_node.neighbors[ghost.direction]
 		ghost.position = ghost.current_node.position
@@ -82,9 +110,9 @@ update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 		return
 	}
 
-
 	valid_directions, valid_nodes := get_valid_neighbors(ghost.target_node)
-
+	defer delete(valid_directions)
+	defer delete(valid_nodes)
 
     if ghost.state == GhostState.Scatter {
 
@@ -136,7 +164,6 @@ update_ghost_ai :: proc(ghost: ^Ghost, goal: linalg.Vector2f32, dt: f32) {
 		advance_timer(ghost, dt)
 	}
 
-
 	return
 }
 
@@ -148,12 +175,9 @@ advance_timer :: proc(ghost: ^Ghost, dt: f32) {
 	}
 
 	#partial switch ghost.state {
-	case .Scatter:
-		set_ghost_state(ghost, .Chase, 20000)
-	case .Chase:
-		set_ghost_state(ghost, .Scatter, 7000)
-	case .Freight:
-		set_ghost_state(ghost, .Freight, 10000)
+		case .Scatter: set_ghost_state(ghost, .Chase, 20000)
+		case .Chase: set_ghost_state(ghost, .Scatter, 7000)
+		case .Freight: set_ghost_state(ghost, .Freight, 10000)
 	}
 }
 

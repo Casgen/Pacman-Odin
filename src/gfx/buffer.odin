@@ -7,6 +7,7 @@ Buffer :: struct {
     target: u32
 }
 
+@export
 create_vao :: proc() -> u32 {
     id: u32
     GL.GenVertexArrays(1, &id)
@@ -14,7 +15,7 @@ create_vao :: proc() -> u32 {
     return id
 }
 
-
+@export
 create_vertex_buffer :: proc(data: [^]$T, size: int, usage: u32 = GL.STATIC_DRAW) -> Buffer {
 
     buffer: Buffer
@@ -28,6 +29,7 @@ create_vertex_buffer :: proc(data: [^]$T, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
+@export
 create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW) -> Buffer {
 
     buffer: Buffer
@@ -41,14 +43,17 @@ create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
+@export
 delete_buffer :: proc(using buffer: ^Buffer) {
     GL.DeleteBuffers(1, &id)
 }
 
+@export
 bind_buffer :: proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, id)
 }
 
+@export
 unbind_buffer :: proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, 0)
 }

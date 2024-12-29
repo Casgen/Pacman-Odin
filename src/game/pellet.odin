@@ -1,4 +1,4 @@
-package entities
+package game
 
 import "../constants"
 import "core:math/linalg"
@@ -17,17 +17,17 @@ Pellet :: struct {
     is_visible:       bool,
 }
 
-pellet_size :: 10.0
-power_pellet_size :: 20.0
+PELLET_SIZE :: 10.0
+POWER_PELLET_SIZE :: 20.0
 
-create_pellets_buffer :: proc(pellets: [dynamic]Pellet) -> (vao_id, vbo_id: u32, ssbo: gfx.SSBO) {
+create_pellets_buffer :: proc(pellets: []Pellet) -> (vao_id, vbo_id: u32, ssbo: gfx.SSBO) {
 
     vertices: [dynamic]f32
     reserve(&vertices, len(pellets) * 7)
     visibility: [dynamic]u32
 
     for &pellet in pellets {
-        result_size: f32 = pellet.is_power_pellet ? power_pellet_size : pellet_size
+        result_size: f32 = pellet.is_power_pellet ? POWER_PELLET_SIZE : PELLET_SIZE
         append(&vertices, pellet.position.x, pellet.position.y, 1.0, 0.7, 0.0, 1.0, 10)
         append(&visibility, 1)
     }

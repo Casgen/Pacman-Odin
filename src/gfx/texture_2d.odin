@@ -15,6 +15,7 @@ Texture2D :: struct {
 // Don't forget to bind the texture afterwards!
 // 
 // TODO: Implement further options for interpreting more formats!
+@export
 create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 
     stbi.set_flip_vertically_on_load_thread(false)
@@ -26,14 +27,12 @@ create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 
     desired_channels: libc.int = 4
 
-
     contents := stbi.load(path, &img_width, &img_height, &desired_channels, 4)
 	defer stbi.image_free(contents)
 
 	if contents == nil {
 		panic("Failed to load the spritesheet! quiting the game!")
 	}
-
 
     GL.GenTextures(1, &img_id) 
     GL.BindTexture(GL.TEXTURE_2D, img_id) 
@@ -51,6 +50,7 @@ create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 
 // Creates a blank 2D texture
 // TODO: Implement further options for interpreting more formats!
+@export
 create_texture_2d_empty :: proc(width: i32, height: i32) -> Texture2D {
 	img_id: u32
 
@@ -73,6 +73,7 @@ create_texture_2d :: proc {
 	create_texture_2d_empty,
 }
 
+@export
 bind_texture_2d :: proc(using texture: Texture2D, slot: u32) {
     GL.ActiveTexture(GL.TEXTURE0 + slot)
     GL.BindTexture(GL.TEXTURE_2D, id)
@@ -82,14 +83,17 @@ bind_texture_2d :: proc(using texture: Texture2D, slot: u32) {
 // The binding point number should match to one of the images you want in the shaders.
 // for ex. `layout (rgba32f, binding = 1) uniform image2D spritesheet;`, the `binding` here
 // should be 1.
+@export
 bind_texture_as_image :: proc(using texture: Texture2D, binding: u32) {
     GL.BindImageTexture(binding, id, 0, GL.FALSE, 0, GL.READ_WRITE, GL.RGBA32F);
 }
 
+@export
 unbind_texture_2d :: proc() {
 	GL.BindTexture(GL.TEXTURE_2D, 0)
 }
 
+@export
 destroy_texture_2d :: proc(using tex: ^Texture2D) {
 	ptr: [1]u32 = [1]u32{tex.id}
 	GL.DeleteTextures(1, &ptr[0])

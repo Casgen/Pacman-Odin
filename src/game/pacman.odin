@@ -1,4 +1,4 @@
-package entities
+package game
 
 import "../constants"
 import "core:fmt"
@@ -7,6 +7,8 @@ import SDL "vendor:sdl2"
 import Consts "../constants"
 import "../gfx"
 import GL "vendor:OpenGL"
+import "core:mem/virtual"
+import "../logger"
 
 
 Pacman :: struct {
@@ -46,7 +48,7 @@ update_direction :: proc(pacman: ^Pacman, scancode: SDL.Scancode) {
 
 }
 
-update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
+pacman_update_pos :: proc(pacman: ^Pacman, dt: f32) {
 
     if !is_moving(pacman) && pacman.desired_direction != .None {
         update_target_node(pacman, pacman.desired_direction)
@@ -56,7 +58,7 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
         return
     }
 
-    if pacman.target_node.is_ghost {
+    if NodeType.GhostOnly in pacman.target_node.flags {
         pacman.target_node = nil
         return
     }
@@ -80,7 +82,7 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
     }
 
     // At this point pacman has reached its target node
-    if pacman.target_node.is_portal {
+    if NodeType.Portal in pacman.target_node.flags {
         pacman.current_node = pacman.target_node.neighbors[Direction.Portal]
         pacman.target_node = pacman.current_node.neighbors[pacman.direction]
         pacman.position = pacman.current_node.position
@@ -100,23 +102,24 @@ update_pacman_pos :: proc(pacman: ^Pacman, dt: f32) {
 }
 
 
-try_eat_pellets :: proc(pacman: ^Pacman, pellets: ^[dynamic]Pellet) -> (^Pellet, int) {
-
+try_eat_pellets :: proc(pacman: ^Pacman, pellets: []Pellet) -> (^Pellet, int) {
 	diff: linalg.Vector2f32
 
-	for &pellet, i in pellets {
+	for i := 0; i < len(pellets); i += 1 {
+	
+		pellet := &pellets[i]
+
         distance := linalg.vector_length2(pacman.position - pellet.position)
 		r_distance :=
 			(pacman.collision_radius * pacman.collision_radius) +
 			(pellet.radius) * (pellet.radius)
 
 		if distance < r_distance && pellets[i].is_visible {
-			return &pellet, i
+			return pellet, i
 		}
 	}
 
 	return nil, -1
-
 }
 
 debug_render_player :: proc(renderer: ^SDL.Renderer, pacman: ^Pacman) {
@@ -139,16 +142,17 @@ ogl_debug_render_player :: proc(using pacman: ^Pacman, program: ^gfx.Program) {
     GL.DrawElements(GL.TRIANGLE_STRIP, 4, GL.UNSIGNED_INT, nil)
 }
 
-create_pacman :: proc(starting_node: ^Node) -> Pacman {
+pacman_create :: proc(game_memory: ^GameMemory) -> ^Pacman {
 
-	pacman: Pacman
+	pacman, ok := arena_push_struct(&game_memory.transient_storage, Pacman)
+	assert(ok)
 
     pacman.entity = {} 
-	pacman.position = starting_node.position
+	pacman.position = {0.0, 0.0}
     pacman.layer = 0.0
     pacman.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
     pacman.quad = gfx.create_quad({1.0,1.0,0.0,1.0})
-	pacman.current_node = starting_node
+	pacman.current_node = nil
 	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
     pacman.collision_radius = Consts.TILE_WIDTH / 2
 	pacman.velocity = {0, 0}
@@ -157,4 +161,9 @@ create_pacman :: proc(starting_node: ^Node) -> Pacman {
 	pacman.desired_direction = Direction.Left
 
     return pacman
+}
+
+pacman_init :: proc(pacman: ^Pacman, starting_node: ^Node) {
+	pacman.current_node = starting_node
+	pacman.position = starting_node.position
 }

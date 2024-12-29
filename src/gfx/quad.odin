@@ -7,10 +7,12 @@ Quad :: struct {
     vao_id, vbo_id, ebo_id: u32
 }
 
+@export
 create_quad_color :: proc (color: [4]f32) -> Quad {
 	return create_quad_color_scale(color, {1.0, 1.0});
 }
 
+@export
 create_quad_color_scale :: proc(color: [4]f32, scale: linalg.Vector2f32) -> Quad {
 
     quad: Quad
@@ -33,7 +35,7 @@ create_quad_color_scale :: proc(color: [4]f32, scale: linalg.Vector2f32) -> Quad
     
     GL.GenBuffers(1, &quad.ebo_id) 
     GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, quad.ebo_id)
-    GL.BufferData(GL.ELEMENT_ARRAY_BUFFER, len(indices) * size_of(u32), &indices, GL.STATIC_DRAW)
+    GL.BufferData(GL.ELEMENT_ARRAY_BUFFER, len(indices) * size_of(u32), rawptr(&indices[0]), GL.STATIC_DRAW)
     GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, 0)
 
     vertex_builder: VertexBuilder
@@ -73,6 +75,7 @@ create_quad :: proc {
 	create_quad_color,
 }
 
+@export
 destroy_quad :: proc(quad: ^Quad) {
 
 	vao_ptr: [1]u32 = [1]u32{quad.vao_id}
@@ -82,6 +85,7 @@ destroy_quad :: proc(quad: ^Quad) {
 	GL.DeleteBuffers(2, &buffer_ptrs[0])
 }
 
+@export
 draw_quad :: proc(using quad: ^Quad, program_id: u32) {
     
     GL.UseProgram(program_id)

@@ -1,4 +1,4 @@
-package level
+package game
 
 import GL "vendor:OpenGL"
 import "../gfx"
@@ -205,6 +205,7 @@ parse_walls :: proc(lvl_data: ^LevelData) -> [dynamic]u32 {
 
 create_maze :: proc(lvl_data: ^LevelData) -> Maze {
 	wall_data := parse_walls(lvl_data)
+	defer delete(wall_data)
 
 	// Build a maze texture
 	maze_ssbo := gfx.create_ssbo(wall_data)

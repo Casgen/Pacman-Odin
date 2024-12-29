@@ -31,6 +31,7 @@ evaluate_shader_type :: proc{
     evaluate_shader_type_ext,
 }
 
+@private
 evaluate_shader_type_u32 :: proc(type: u32) -> string {
     switch type {
         case GL.VERTEX_SHADER: return "Vertex Shader"
@@ -44,6 +45,7 @@ evaluate_shader_type_u32 :: proc(type: u32) -> string {
 
 }
 
+@private
 evaluate_shader_type_ext :: proc(ext: string) -> u32 {
     switch ext {
         case ".vert": return GL.VERTEX_SHADER
@@ -57,6 +59,7 @@ evaluate_shader_type_ext :: proc(ext: string) -> u32 {
 
 }
 
+@export
 create_program :: proc(shader_dir_path: string) -> Program  {
 
     buffer_id: u32
@@ -70,7 +73,9 @@ create_program :: proc(shader_dir_path: string) -> Program  {
         fmt.panicf("Error opening the shader dir!: %d", open_err)
     }
 
-    new_shaders: sa.Small_Array(6, Shader)
+	new_shaders: [6]Shader = {}
+
+	shader_i: u32 = 0
 
     file_infos, read_err := os.read_dir(dir_handle, 6)
 
@@ -87,25 +92,23 @@ create_program :: proc(shader_dir_path: string) -> Program  {
 
         shader, ok := create_shader(info.fullpath, shader_type)
         assert(ok == .None)
-        sa.append(&new_shaders, shader)
 
+        new_shaders[shader_i] = shader
         GL.AttachShader(program.id, shader.id)
     }
 
     GL.LinkProgram(program.id)
     GL.ValidateProgram(program.id)
 
-    for i := 0; i < new_shaders.len; i += 1 {
-        shader := sa.get(new_shaders, i)
-        GL.DeleteShader(shader.id)
+    for s in new_shaders{
+        GL.DeleteShader(s.id)
     }
 
     os.close(dir_handle)
-
-
     return program
 }
 
+@export
 create_shader :: proc(shader_path: string, shader_type: u32) -> (Shader, ShaderError) {
 
     shader: Shader
@@ -152,6 +155,7 @@ create_shader :: proc(shader_path: string, shader_type: u32) -> (Shader, ShaderE
     
 }
 
+@export
 get_uniform_location :: proc(using program: ^Program, name: cstring) -> i32 {
     location, ok := program.uniform_map[name]
 
@@ -174,36 +178,42 @@ set_uniform_1i :: proc {
     set_uniform_1i_int,
 }
 
+@export
 set_uniform_1i_i32 :: proc(using program: ^Program, name: cstring, value: i32) {
     GL.Uniform1i(get_uniform_location(program, name), value)
 }
 
+@export
 set_uniform_1i_int :: proc(using program: ^Program, name: cstring, value: int) {
     GL.Uniform1i(get_uniform_location(program, name), i32(value))
 }
 
+@export
 set_uniform_1u_u32 :: proc(using program: ^Program, name: cstring, value: u32) {
     GL.Uniform1ui(get_uniform_location(program, name), (value))
 }
 
+@export
 set_uniform_2u_u32 :: proc(using program: ^Program, name: cstring, v0: u32, v1: u32) {
     GL.Uniform2ui(get_uniform_location(program, name), v0, v1)
 }
-
 
 set_uniform_2f :: proc {
     set_uniform_2f_float,
     set_uniform_2f_vec,
 }
 
+@export
 set_uniform_1f :: proc(using program: ^Program, name: cstring, value: f32) {
     GL.Uniform1f(get_uniform_location(program, name), value)
 }
 
+@export
 set_uniform_2f_float :: proc(using program: ^Program, name: cstring, value_1: f32, value_2: f32 ) {
     GL.Uniform2f(get_uniform_location(program, name), value_1, value_2)
 }
 
+@export
 set_uniform_2f_vec :: proc(using program: ^Program, name: cstring, vec: linalg.Vector2f32) {
     GL.Uniform2f(get_uniform_location(program, name), vec.x, vec.y)
 }
@@ -213,27 +223,33 @@ bind_program :: proc {
 	bind_program_id,
 }
 
+@export
 bind_program_struct :: proc(using program: ^Program) {
 	GL.UseProgram(program.id)
 }
 
+@export
 bind_program_id :: proc(id: u32) {
 	GL.UseProgram(id)
 }
 
+@export
 unbind_program :: proc() {
 	GL.UseProgram(0)
 }
 
+@export
 destroy_program :: proc(using program: ^Program) {
 	GL.DeleteProgram(program.id)
 	delete(program.uniform_map)
 }
 
+@export
 dispatch_compute :: #force_inline proc(num_groups_x, num_groups_y, num_groups_z: u32) {
 	GL.DispatchCompute(num_groups_x, num_groups_y, num_groups_z)
 }
 
+@export
 memory_barrier :: #force_inline proc(barriers: u32) {
 	GL.MemoryBarrier(barriers)
 }

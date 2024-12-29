@@ -1,4 +1,4 @@
-package entities
+package game
 
 import "core:math/linalg"
 import "../gfx"
@@ -17,6 +17,7 @@ Entity :: struct {
 }
 
 has_overshot_target :: proc(entity: ^Entity) -> bool {
+	assert(entity.current_node != nil && entity.target_node != nil)
     path_distance := linalg.vector_length2(entity.current_node.position - entity.target_node.position)
     distance_to_node := linalg.vector_length2(entity.current_node.position - entity.position) 
 
@@ -44,6 +45,4 @@ update_target_node :: proc(entity: ^Entity, direction: Direction) {
     entity.velocity = {0,0}
     entity.direction = .None
     return
-
-
 }

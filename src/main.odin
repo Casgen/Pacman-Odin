@@ -4,20 +4,26 @@ import Consts "constants"
 import "core:fmt"
 import GL "vendor:OpenGL"
 import SDL "vendor:sdl2"
-import "entities"
-import Level "level"
-import "gfx"
 import "core:time"
+import "core:mem"
 import "core:c/libc"
+import "core:dynlib"
+import "gfx"
+import "dll"
+import "game"
 
-App :: struct {
+GameState :: struct {
 	perf_frequency: f64,
 	renderer:       ^SDL.Renderer,
 	window:         ^SDL.Window,
-	gl_context:     rawptr,
+	gl_context:     SDL.GLContext,
 }
 
-app := App{}
+app := GameState{
+	renderer = nil,
+	window = nil,
+	gl_context = nil
+}
 
 debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, length: i32, message: cstring, userParam: rawptr) {
 
@@ -62,61 +68,14 @@ debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, leng
     libc.fprintf(libc.stdout,"\n")
 }
 
-init_sdl_with_gl :: proc() {
-
-	init_result := SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK | SDL.INIT_EVENTS)
-
-	if (init_result != 0) {
-		panic(SDL.GetErrorString())
-	}
-
-	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_PROFILE_MASK, auto_cast (SDL.GLprofile.CORE))
-	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_MAJOR_VERSION, 4)
-	SDL.GL_SetAttribute(SDL.GLattr.CONTEXT_MINOR_VERSION, 6)
-	SDL.GL_SetAttribute(SDL.GLattr.DOUBLEBUFFER, 1)
-	SDL.GL_SetAttribute(SDL.GLattr.DEPTH_SIZE, 24)
-
-	app.window = SDL.CreateWindow(
-		"PacMan",
-		SDL.WINDOWPOS_CENTERED,
-		SDL.WINDOWPOS_CENTERED,
-		Consts.SCREEN_WIDTH,
-		Consts.SCREEN_HEIGHT,
-		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,
-	)
-
-
-    GL.load_up_to(4, 6, SDL.gl_set_proc_address)
-
-	assert(app.window != nil, SDL.GetErrorString())
-
-	app.gl_context = SDL.GL_CreateContext(app.window)
-
-	assert(app.gl_context != nil, SDL.GetErrorString())
-
-	if SDL.GL_SetSwapInterval(1) < 0 {
-		fmt.panicf("Failed to set Swap Interval!: %s", SDL.GetErrorString())
-	}
-
-    GL.Enable(GL.DEBUG_OUTPUT)
-    GL.Enable(GL.DEBUG_OUTPUT_SYNCHRONOUS)
-    GL.Enable(GL.BLEND)
-    GL.BlendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
-    GL.DebugMessageCallback(debug_callback, nil)
-
-}
 
 main :: proc() {
-	init_sdl_with_gl()
-    gfx.load_spritesheet("./res/spritesheet.png")
 
-	level := Level.load_level("res/mazetest.txt")
+	game_memory, ok := game.init()
 
-	pacman := entities.create_pacman(level.nodes[0])
-	ghost := entities.create_ghost(level.nodes[1], {1.0,1.0})
-    program := gfx.create_program("res/shaders/quad/")
-    point_program := gfx.create_program("res/shaders/node_pellets")
-    pellets_program := gfx.create_program("res/shaders/pellets")
+	if !ok {
+		panic("Failed to run the game!")
+	}
 
 	time_start, time_last: f64
 	timestep: f32 = 0
@@ -124,77 +83,12 @@ main :: proc() {
 	event: SDL.Event
 	state: [^]u8
 
-    start_time: time.Duration
     delta_time: f32
 
-    stopwatch: time.Stopwatch
-    time.stopwatch_start(&stopwatch)
-
-    GL.Enable(GL.PROGRAM_POINT_SIZE)
-
-	game_loop : for {
-
-        start_time = time.stopwatch_duration(stopwatch)
-
-		// Don't forget to call PollEvent in a while loop!
-		// Otherwise, the events won't register immediately when focusing the window.
-		for (SDL.PollEvent(&event) == true) {
-			#partial switch event.type {
-
-				case SDL.EventType.QUIT:
-					break game_loop
-
-				case SDL.EventType.KEYDOWN:
-					key := event.key.keysym.scancode
-
-					switch {
-						case key >= SDL.Scancode.RIGHT && key <= SDL.Scancode.UP:
-							entities.update_direction(&pacman, event.key.keysym.scancode)
-						case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
-							break game_loop
-					}
-			}
-		}
-
-
-
-		entities.update_pacman_pos(&pacman, delta_time)
-        pellet, i := entities.try_eat_pellets(&pacman, &level.pellets)
-
-        if pellet != nil {
-            entities.set_visibility(pellet, i, level.pellets_ssbo, false)
-            fmt.println("Eaten!")
-        }
-
-        entities.update_ghost_ai(&ghost, pacman.position, delta_time)
-
-        GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
-
-        gfx.ogl_draw_debug_points(len(level.nodes), level.node_vao_id, point_program.id) 
-
-		Level.draw_maze(&level.maze)
-
-        GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, level.pellets_ssbo.id)
-        GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, level.pellets_ssbo.id)
-        gfx.ogl_draw_debug_points(len(level.pellets), level.pellets_vao_id, pellets_program.id) 
-
-        entities.ogl_debug_render_player(&pacman, &program)
-        entities.ogl_debug_render_ghost(&ghost, &program)
-
-        SDL.GL_SwapWindow(app.window)
-
-        delta_time = cast(f32)time.duration_milliseconds(time.stopwatch_duration(stopwatch) - start_time)
+	for (game_memory.game_state.is_running) {
+		game.update(&game_memory, &delta_time)
 	}
 
-	// Quit the game
-	gfx.unbind_program()
-	gfx.unbind_texture_2d()
-	gfx.destroy_program(&pellets_program)
-	gfx.destroy_program(&point_program)
-	gfx.destroy_program(&program)
-	gfx.destroy_spreadsheet()
-
-	SDL.DestroyWindow(app.window)
-	SDL.DestroyRenderer(app.renderer)
+	game.deinit(&game_memory)
 }
 

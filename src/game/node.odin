@@ -1,4 +1,4 @@
-package entities
+package game
 
 import "core:math/linalg"
 import SDL "vendor:sdl2"
@@ -14,32 +14,28 @@ Direction :: enum i8 {
 	Portal = 4,
 }
 
+NodeType :: enum u8 {
+	GhostOnly,
+	GhostSpawn,
+	PacmanSpawn,
+	Portal,
+}
+
 Node :: struct {
-	neighbors: [5]^Node,
-	position:  linalg.Vector2f32,
-	is_portal: bool,
-	is_ghost:  bool,
+	flags: bit_set[NodeType],
+	neighbors:	[5]^Node,
+	position:	linalg.Vector2f32,
 }
 
-create_node :: proc(
-	position_x, position_y: f32,
-	allocator := context.allocator,
-) -> ^Node {
-	node: ^Node = new(Node, allocator)
-
-	node.position.x = position_x
-	node.position.y = position_y
-	node.is_portal = false
-	node.is_ghost = false
-	node.neighbors = {}
-
-	return node
-}
-
+// From a particular node, fetches the valid neigbhors and their direction
+// Don't forget to delete the results after using it!
+// TODO: Maybe change this later to an array on stack. A dynamic array is too overkill.
 get_valid_neighbors :: proc(node: ^Node) -> ([dynamic]Direction, [dynamic]^Node) {
 
-	valid_directions: [dynamic]Direction
-	valid_nodes: [dynamic]^Node
+	assert(node != nil)
+
+	valid_directions: [dynamic]Direction = {}
+	valid_nodes: [dynamic]^Node = {}
 
 	for target, index in node.neighbors {
 
@@ -52,7 +48,7 @@ get_valid_neighbors :: proc(node: ^Node) -> ([dynamic]Direction, [dynamic]^Node)
 	return valid_directions, valid_nodes
 }
 
-create_debug_nodes_buffer :: proc(nodes: [dynamic]^Node) -> (vao_id, vbo_id: u32) {
+create_debug_nodes_buffer :: proc(nodes: []Node) -> (vao_id, vbo_id: u32) {
 
     node_vertices: [dynamic]f32
     reserve(&node_vertices,  len(nodes) * 7)
@@ -77,4 +73,3 @@ create_debug_nodes_buffer :: proc(nodes: [dynamic]^Node) -> (vao_id, vbo_id: u32
 
     return vao_id, vbo_id
 }
-

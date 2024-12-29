@@ -11,6 +11,7 @@ Camera :: struct {
     side_vec:   linalg.Vector3f32
 }
 
+@export
 create_camera :: proc() -> Camera {
     camera: Camera
 

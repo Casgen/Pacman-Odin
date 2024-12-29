@@ -5,36 +5,43 @@ import "core:time"
 import "base:runtime"
 
 log_fatalf :: #force_inline proc(msg: string, args: ..any) {
-	_ = fmt.eprintfln("[FATAL] : %s", fmt.tprintf(msg, args))
+	_ = fmt.eprintfln("[FATAL] : %s", fmt.tprintf(msg, ..args))
 }
 
 log_errorf :: #force_inline proc(msg: string, args: ..any) {
-	_ = fmt.eprintfln("[ERROR] : %s", fmt.tprintf(msg, args))
+	_ = fmt.eprintfln("[ERROR]: %s", fmt.tprintf(msg, ..args))
 }
 
 log_infof :: #force_inline proc(msg: string, args: ..any) {
-	_ = fmt.printfln("[INFO] : %s", fmt.tprintf(msg, args))
+	_ = fmt.printfln("[INFO] : %s", fmt.tprintf(msg, ..args))
 }
 
 log_warnf :: #force_inline proc(msg: string, args: ..any) {
-	_ = fmt.printfln("[WARNING] : %s", fmt.tprintf(msg, args))
+	_ = fmt.printfln("[WARNING] : %s", fmt.tprintf(msg, ..args))
+}
+
+log_debugf :: #force_inline proc(msg: string, args: ..any) {
+	when ODIN_DEBUG {
+		out_string := fmt.tprintf(msg, ..args)
+		_ = fmt.printfln("[DEBUG] : %s", out_string)
+	}
 }
 
 // Formatted with passed location
 log_fatalfl :: #force_inline proc(msg: string, location: runtime.Source_Code_Location, args: ..any) {
-	_ = fmt.eprintfln("[FATAL] : %s at location %s", fmt.tprintf(msg, args), location)
+	_ = fmt.eprintfln("[FATAL] : %s at location %s", fmt.tprintf(msg, ..args), location)
 }
 
 log_errorfl :: #force_inline proc(msg: string, location: runtime.Source_Code_Location, args: ..any) {
-	_ = fmt.eprintfln("[ERROR] : %s at location %s", fmt.tprintf(msg, args), location)
+	_ = fmt.eprintfln("[ERROR] : %s at location %s", fmt.tprintf(msg, ..args), location)
 }
 
 log_infofl :: #force_inline proc(msg: string, location: runtime.Source_Code_Location, args: ..any) {
-	_ = fmt.printfln("[INFO] : %s at location %s", fmt.tprintf(msg, args), location)
+	_ = fmt.printfln("[INFO] : %s at location %s", fmt.tprintf(msg, ..args), location)
 }
 
 log_warnfl :: #force_inline proc(msg: string, location: runtime.Source_Code_Location, args: ..any) {
-	_ = fmt.printfln("[WARNING] : %s at location %s", fmt.tprintf(msg, args), location)
+	_ = fmt.printfln("[WARNING] : %s at location %s", fmt.tprintf(msg, ..args), location)
 }
 
 // Unformatted
