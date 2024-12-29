@@ -123,8 +123,9 @@ create_and_connect_nodes :: proc(
 	game_memory: ^GameMemory,
 	lvl_data: ^LevelData,
 ) -> FirstStageResult {
+
 	ghost_spawn_count: u32 = 0
-	node_map: map[u64]Node = {}
+	node_map: map[u64]^Node = {}
 	defer delete(node_map)
 
 	portal_node_map: map[u8]^Node = {}
@@ -137,6 +138,8 @@ create_and_connect_nodes :: proc(
 		Consts.TILE_WIDTH * f32(lvl_data.col_count),
 		Consts.TILE_HEIGHT * f32(lvl_data.row_count)
 	}
+
+	first_node: ^Node = nil
 
 	// Create new nodes and connect them horizontally
 	for row in 0 ..< lvl_data.row_count {
@@ -159,6 +162,7 @@ create_and_connect_nodes :: proc(
 				continue
 			}
 
+
 			key := u64(col | row << 32)
 
 			position: linalg.Vector2f32 =  {
@@ -166,14 +170,20 @@ create_and_connect_nodes :: proc(
 			    normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
 			}
 
-			node_map[key] = Node{
-				position = position,
-				flags = node_flags
-			}
+			// WARN: There might be potentially a problem with performance, due to the alignment
+			// not being 8 bytes. But I think it's not much of a concern at the moment. We need it
+			// to be aligned to one byte to mimic an array and have it packed.
+			new_node, ok := arena_push_struct(&game_memory.transient_storage, Node, 1)
+			assert(ok)
 
-			new_node, _ := &node_map[key]
+			node_map[key] = new_node
 			new_node.flags = node_flags
+			new_node.position = position
 			append(&row_nodes, new_node)
+
+			if first_node == nil {
+				first_node = new_node
+			}
 
 			if NodeType.GhostSpawn in node_flags {
 				ghost_spawn_count += 1
@@ -220,7 +230,7 @@ create_and_connect_nodes :: proc(
 				clear(&col_nodes)
 			}
 
-			found_node, ok := &node_map[u64(col | row << 32)]
+			found_node, ok := node_map[u64(col | row << 32)]
 
 			if ok {
 				append(&col_nodes, found_node)
@@ -237,28 +247,26 @@ create_and_connect_nodes :: proc(
 	assert(node_count == len(node_map))
 
 	result: FirstStageResult = {
-		node_array = make([]Node, node_count),
-		ghost_spawns = make([]^Node, ghost_spawn_count)
+		node_array = mem.slice_ptr(first_node, node_count),
+		ghost_spawns = arena_push_array(&game_memory.transient_storage, ^Node, ghost_spawn_count),
+		pacman_spawn = nil
 	}
 
-	node_i := 0
 	ghost_i := 0
 
-	for _, &node in node_map {
-		result.node_array[node_i] = node
-
-		fmt.printfln("Node %d: %v", node_i, rawptr(&result.node_array[node_i]))
-
+	for &node, i in result.node_array {
 		if NodeType.GhostSpawn in node.flags {
-			result.ghost_spawns[ghost_i] = &result.node_array[node_i]
+			result.ghost_spawns[ghost_i] = &node
 			ghost_i += 1
 		}
 
 		if node.flags == {NodeType.PacmanSpawn} {
-			result.pacman_spawn = &result.node_array[node_i]
+			result.pacman_spawn = &node
 		}
+	}
 
-		node_i += 1
+	for &node, i in result.node_array {
+		fmt.printfln("%d. Node: %v", i, node.position)
 	}
 
 	return result
