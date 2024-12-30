@@ -179,22 +179,22 @@ set_uniform_1i :: proc {
 }
 
 @export
-set_uniform_1i_i32 :: proc(using program: ^Program, name: cstring, value: i32) {
+set_uniform_1i_i32 :: #force_inline proc(using program: ^Program, name: cstring, value: i32) {
     GL.Uniform1i(get_uniform_location(program, name), value)
 }
 
 @export
-set_uniform_1i_int :: proc(using program: ^Program, name: cstring, value: int) {
+set_uniform_1i_int :: #force_inline proc(using program: ^Program, name: cstring, value: int) {
     GL.Uniform1i(get_uniform_location(program, name), i32(value))
 }
 
 @export
-set_uniform_1u_u32 :: proc(using program: ^Program, name: cstring, value: u32) {
+set_uniform_1u_u32 :: #force_inline proc(using program: ^Program, name: cstring, value: u32) {
     GL.Uniform1ui(get_uniform_location(program, name), (value))
 }
 
 @export
-set_uniform_2u_u32 :: proc(using program: ^Program, name: cstring, v0: u32, v1: u32) {
+set_uniform_2u_u32 :: #force_inline proc(using program: ^Program, name: cstring, v0: u32, v1: u32) {
     GL.Uniform2ui(get_uniform_location(program, name), v0, v1)
 }
 
@@ -204,17 +204,17 @@ set_uniform_2f :: proc {
 }
 
 @export
-set_uniform_1f :: proc(using program: ^Program, name: cstring, value: f32) {
+set_uniform_1f :: #force_inline proc(using program: ^Program, name: cstring, value: f32) {
     GL.Uniform1f(get_uniform_location(program, name), value)
 }
 
 @export
-set_uniform_2f_float :: proc(using program: ^Program, name: cstring, value_1: f32, value_2: f32 ) {
+set_uniform_2f_float :: #force_inline proc(using program: ^Program, name: cstring, value_1: f32, value_2: f32 ) {
     GL.Uniform2f(get_uniform_location(program, name), value_1, value_2)
 }
 
 @export
-set_uniform_2f_vec :: proc(using program: ^Program, name: cstring, vec: linalg.Vector2f32) {
+set_uniform_2f_vec :: #force_inline proc(using program: ^Program, name: cstring, vec: linalg.Vector2f32) {
     GL.Uniform2f(get_uniform_location(program, name), vec.x, vec.y)
 }
 
@@ -224,22 +224,22 @@ bind_program :: proc {
 }
 
 @export
-bind_program_struct :: proc(using program: ^Program) {
+bind_program_struct :: #force_inline proc(using program: ^Program) {
 	GL.UseProgram(program.id)
 }
 
 @export
-bind_program_id :: proc(id: u32) {
+bind_program_id :: #force_inline proc(id: u32) {
 	GL.UseProgram(id)
 }
 
 @export
-unbind_program :: proc() {
+unbind_program :: #force_inline proc() {
 	GL.UseProgram(0)
 }
 
 @export
-destroy_program :: proc(using program: ^Program) {
+destroy_program :: #force_inline proc(using program: ^Program) {
 	GL.DeleteProgram(program.id)
 	delete(program.uniform_map)
 }

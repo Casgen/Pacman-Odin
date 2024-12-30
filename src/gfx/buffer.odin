@@ -58,3 +58,15 @@ unbind_buffer :: proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, 0)
 }
 
+@export
+bind_vertex_array :: #force_inline proc(vao_id: u32) {
+	GL.BindVertexArray(vao_id)
+}
+
+unbind_vertex_array :: #force_inline proc() {
+	GL.BindVertexArray(0)
+}
+
+bind_buffer_base :: #force_inline proc(ssbo: SSBO, target: u32) {
+    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, target, ssbo.id)
+}

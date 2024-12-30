@@ -162,7 +162,6 @@ create_and_connect_nodes :: proc(
 				continue
 			}
 
-
 			key := u64(col | row << 32)
 
 			position: linalg.Vector2f32 =  {
@@ -276,11 +275,13 @@ create_and_connect_nodes :: proc(
 // The second stage of creating a level.
 @export
 find_and_create_pellets :: proc(
+	game_memory: ^GameMemory,
 	lvl_data: ^LevelData,
 ) -> []Pellet {
 	assert(len(lvl_data.data) > 0)
  
-	pellets: [dynamic]Pellet = {}
+	first_pellet: ^Pellet = nil
+	pellet_count := 0
 
     normalized_dims: linalg.Vector2f32 = {
 		Consts.TILE_WIDTH * f32(lvl_data.col_count),
@@ -298,21 +299,38 @@ find_and_create_pellets :: proc(
 			}
 			
 			if (obj == '.' || obj == '+' || obj == 'P' || obj == 'p') {
-				append(&pellets, Pellet{
-					position = position,
-					flash_time = 0.2,
-					points = 50,
-					radius = obj == 'P' ? Consts.POWER_PELLET_RADIUS : Consts.PELLET_RADIUS,
-					timer = obj == 'P' ? 0 : 10,
-					is_power_pellet = obj == 'P',
-					is_visible = true,
-				})
+
+				new_pellet, ok := arena_push_struct(&game_memory.transient_storage, Pellet, 1)
+				assert(ok)
+
+				if (first_pellet == nil) {
+					first_pellet = new_pellet
+				}
+
+				new_pellet.position = position
+				new_pellet.flash_time = 0.2
+				new_pellet.points = 50
+				new_pellet.is_visible = true
+
+				if (obj == 'P' || obj == 'p') {
+					new_pellet.radius = Consts.POWER_PELLET_RADIUS
+					new_pellet.timer = 10
+					new_pellet.is_power_pellet = true
+				} else {
+					new_pellet.radius = Consts.PELLET_RADIUS
+					new_pellet.timer = 0
+					new_pellet.is_power_pellet = false
+				}
+
+				pellet_count += 1
 			}
 
 		}
 	}
 
-	return pellets[:]
+	// This somehow behaves suspiciously. At some point the pellets kept being eaten from the top left
+	// all the way to bottom right.
+	return mem.slice_ptr(first_pellet, pellet_count) 
 }
 
 @export
@@ -330,7 +348,7 @@ parse_level :: proc(game_memory: ^GameMemory, lvl_data: ^LevelData) -> ^Level {
 		len(first_stage_result.ghost_spawns) > 0
 	)
 
-	pellets := find_and_create_pellets(lvl_data)
+	pellets := find_and_create_pellets(game_memory, lvl_data)
 	assert(len(pellets) > 0)
 
 	lvl.nodes = first_stage_result.node_array

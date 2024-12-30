@@ -172,6 +172,9 @@ deinit :: proc(game_memory: ^GameMemory) {
 	SDL.DestroyRenderer(game_memory.game_state.renderer)
 }
 
+// TODO: Gotta figure out, why is it running so fast. Probably left out a piece of code which made the
+// game run at a fixed rate. Gotta integrate that. Also, the algorithm for finding next nodes in the ghost
+// seems to be not work properly. Probably not enough time to stay in one of the states for a long time
 update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 	
 	game_state := &game_memory.game_state
@@ -230,6 +233,6 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 
 	SDL.GL_SwapWindow(game_state.window)
 
-	delta_time^ = f32(time.now()._nsec - start_time)
+	delta_time^ = f32((time.now()._nsec - start_time) / 1_000_000)
 }
 

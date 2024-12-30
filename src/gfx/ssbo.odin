@@ -45,13 +45,18 @@ create_ssbo_ptr :: proc(data: ^$T, size: int) -> (ssbo: SSBO) {
 }
 
 @export
-bind_ssbo_base :: proc (using ssbo: SSBO, binding: u32) {
+bind_ssbo_base :: #force_inline proc (using ssbo: SSBO, binding: u32) {
 	GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, binding, id)
 }
 
 @export
-bind_ssbo :: proc (using ssbo: SSBO, binding: u32) {
+bind_ssbo :: #force_inline proc (using ssbo: SSBO, binding: u32) {
 	GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, id)
+}
+
+@export
+unbind_ssbo :: #force_inline proc() {
+	GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, 0)
 }
 
 @export
