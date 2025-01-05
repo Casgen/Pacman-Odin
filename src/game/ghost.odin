@@ -45,7 +45,7 @@ ghost_create :: proc(game_memory: ^GameMemory) -> ^Ghost {
 
     ghost.entity = {}
     ghost.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
-    ghost.quad = gfx.create_quad({1.0,0.0,1.0,1.0})
+    ghost.quad = gfx.create_quad({1.0,0.0,1.0,1.0}, {1.0, 1.0})
 	ghost.position = {0.0, 0.0}
 	ghost.speed = 0.05 * f32(Consts.TILE_WIDTH / 16)
 	ghost.collision_radius = GHOST_COLLISION_RADIUS

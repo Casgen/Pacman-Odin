@@ -134,9 +134,14 @@ create_and_connect_nodes :: proc(
 	row_nodes: [dynamic]^Node = {}
 	defer delete(row_nodes)
 
-    normalized_dims: linalg.Vector2f32 = {
+    maze_dims: linalg.Vector2f32 = {
 		Consts.TILE_WIDTH * f32(lvl_data.col_count),
 		Consts.TILE_HEIGHT * f32(lvl_data.row_count)
+	}
+
+	maze_position: linalg.Vector2f32 = {
+		0.0 - maze_dims.x / 2.0,
+		0.0 - maze_dims.y / 2.0
 	}
 
 	first_node: ^Node = nil
@@ -165,8 +170,8 @@ create_and_connect_nodes :: proc(
 			key := u64(col | row << 32)
 
 			position: linalg.Vector2f32 =  {
-				f32(col) * Consts.TILE_WIDTH - normalized_dims.x/2,
-			    normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
+				f32(col) * Consts.TILE_WIDTH  + maze_position.x	+ Consts.TILE_WIDTH / 2.0,
+			    f32(row) * Consts.TILE_HEIGHT + maze_position.y	+ Consts.TILE_HEIGHT / 2.0,
 			}
 
 			// WARN: There might be potentially a problem with performance, due to the alignment
@@ -218,11 +223,6 @@ create_and_connect_nodes :: proc(
 	for col in 0 ..< lvl_data.col_count {
 		for row in 0 ..< lvl_data.row_count {
 			obj := lvl_data.data[col + lvl_data.col_count * row]
-
-			position: linalg.Vector2f32 =  {
-				f32(col) * Consts.TILE_WIDTH - normalized_dims.x/2,
-				normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
-			}
 
 			if obj == 'X' && len(col_nodes) > 0 {
 				connect_nodes(&col_nodes, true)
@@ -283,9 +283,14 @@ find_and_create_pellets :: proc(
 	first_pellet: ^Pellet = nil
 	pellet_count := 0
 
-    normalized_dims: linalg.Vector2f32 = {
+    maze_dims: linalg.Vector2f32 = {
 		Consts.TILE_WIDTH * f32(lvl_data.col_count),
 		Consts.TILE_HEIGHT * f32(lvl_data.row_count)
+	}
+
+	maze_position: linalg.Vector2f32 = {
+		0.0 - maze_dims.x / 2.0,
+		0.0 - maze_dims.y / 2.0
 	}
 
 	for col in 0 ..< lvl_data.col_count {
@@ -294,8 +299,8 @@ find_and_create_pellets :: proc(
 			obj := lvl_data.data[col + lvl_data.col_count * row]
 
 			position: linalg.Vector2f32 =  {
-				f32(col) * Consts.TILE_WIDTH - normalized_dims.x/2,
-			    normalized_dims.y - f32(row) * Consts.TILE_HEIGHT - normalized_dims.y/2,
+				f32(col) * Consts.TILE_WIDTH  + maze_position.x + Consts.TILE_WIDTH / 2.0,
+			    f32(row) * Consts.TILE_HEIGHT + maze_position.y + Consts.TILE_HEIGHT / 2.0,
 			}
 			
 			if (obj == '.' || obj == '+' || obj == 'P' || obj == 'p') {
@@ -448,19 +453,19 @@ create_debug_gl_points :: proc(level: ^Level) {
     pos_attr.count = 2
     pos_attr.value_type = .Float
 
-    gfx.push_attribute(&vertex_builder, pos_attr)
+    gfx.push_attribute(&vertex_builder, &pos_attr)
 
     color_attr: gfx.VertexAttribute
     color_attr.count = 4
     color_attr.value_type = .Float
 
-    gfx.push_attribute(&vertex_builder, color_attr)
+    gfx.push_attribute(&vertex_builder, &color_attr)
 
     size_attr: gfx.VertexAttribute
     size_attr.count = 1
     size_attr.value_type = .Float
 
-    gfx.push_attribute(&vertex_builder, size_attr)
+    gfx.push_attribute(&vertex_builder, &size_attr)
 
     gfx.generate_layout(&vertex_builder, vbo_ids[0], vao_ids[0])
     gfx.generate_layout(&vertex_builder, vbo_ids[1], vao_ids[1])

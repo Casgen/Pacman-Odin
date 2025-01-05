@@ -23,8 +23,8 @@ Pacman :: struct {
 VelocityMap :: [Direction]linalg.Vector2f32 {
 	Direction.Right = linalg.Vector2f32{1.0, 0.0},
 	Direction.Left = linalg.Vector2f32{-1.0, 0.0},
-	Direction.Up = linalg.Vector2f32{0.0, 1.0},
-	Direction.Down = linalg.Vector2f32{0.0, -1.0},
+	Direction.Up = linalg.Vector2f32{0.0, -1.0},
+	Direction.Down = linalg.Vector2f32{0.0, 1.0},
     Direction.None = linalg.Vector2f32{0.0, 0.0},
     Direction.Portal = linalg.Vector2f32{0.0, 0.0},
 }
@@ -151,7 +151,7 @@ pacman_create :: proc(game_memory: ^GameMemory) -> ^Pacman {
 	pacman.position = {0.0, 0.0}
     pacman.layer = 0.0
     pacman.scale = {Consts.TILE_WIDTH, Consts.TILE_HEIGHT}
-    pacman.quad = gfx.create_quad({1.0,1.0,0.0,1.0})
+    pacman.quad = gfx.create_quad({1.0,1.0,0.0,1.0}, {1.0, 1.0})
 	pacman.current_node = nil
 	pacman.speed = 0.1 * f32(Consts.TILE_WIDTH / 16.0)
     pacman.collision_radius = Consts.TILE_WIDTH / 2

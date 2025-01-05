@@ -18,6 +18,7 @@ GameState :: struct {
 	gl_context:     SDL.GLContext,
 
 	pacman: ^Pacman,
+	axis: AxisProgram,
 	ghost: ^Ghost, 
 	level: ^Level,
 	quad_program: gfx.Program,
@@ -145,6 +146,7 @@ init :: proc() -> (GameMemory, bool) {
 	init_sdl_with_gl(&game_memory)
 	gfx.load_spritesheet("./res/spritesheet.png")
 
+
 	game_memory.game_state.level = load_level(&game_memory, "res/mazetest.txt")
 	game_memory.game_state.is_running = true
 
@@ -153,6 +155,8 @@ init :: proc() -> (GameMemory, bool) {
 
 	game_memory.game_state.ghost = ghost_create(&game_memory)
 	ghost_init(game_memory.game_state.ghost, game_memory.game_state.level.ghost_spawns[0], {1.0, 1.0})
+
+	game_memory.game_state.axis = create_2d_axis_program()
 
 	game_memory.game_state.quad_program = gfx.create_program("res/shaders/quad")
 
@@ -164,9 +168,13 @@ deinit :: proc(game_memory: ^GameMemory) {
 	gfx.unbind_program()
 	gfx.unbind_texture_2d()
 	gfx.destroy_program(&game_memory.game_state.level.pellets_program)
+	destroy_axis(&game_memory.game_state.axis)
 	gfx.destroy_program(&game_memory.game_state.level.point_program)
 	gfx.destroy_program(&game_memory.game_state.quad_program)
 	gfx.destroy_spreadsheet()
+
+	virtual.arena_destroy(&game_memory.permanent_storage)
+	virtual.arena_destroy(&game_memory.transient_storage)
 
 	SDL.DestroyWindow(game_memory.game_state.window)
 	SDL.DestroyRenderer(game_memory.game_state.renderer)
@@ -230,6 +238,8 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 
 	ogl_debug_render_player(game_state.pacman, &game_state.quad_program)
 	ogl_debug_render_ghost(game_state.ghost, &game_state.quad_program)
+
+	draw_axis(&game_state.axis)
 
 	SDL.GL_SwapWindow(game_state.window)
 

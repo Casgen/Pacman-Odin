@@ -4,12 +4,12 @@ import GL "vendor:OpenGL"
 import "../gfx"
 import Log "../logger"
 import "core:math/linalg"
+import Consts "../constants"
 
 Maze :: struct {
-	tex:		gfx.Texture2D,
 	program:	gfx.Program,
+	tex:		gfx.Texture2D,
 	quad:		gfx.Quad
-
 }
 
 /*
@@ -194,7 +194,9 @@ parse_walls :: proc(lvl_data: ^LevelData) -> [dynamic]u32 {
 		result_mask, ok := wall_bitmask_map[u8(wall_bitmask)]
 
 		if !ok {
-			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b", #location(result_mask), result_mask)
+			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b",
+				#location(result_mask),
+				result_mask)
 		}
 
 		parsed_wall_data[x + lvl_data.col_count * y] = u32(result_mask)
@@ -246,9 +248,15 @@ create_maze :: proc(lvl_data: ^LevelData) -> Maze {
 
 	// Build a program for the maze
 	maze_program := gfx.create_program("res/shaders/maze")
-	maze_quad := gfx.create_quad({1.0, 1.0, 1.0, 1.0}, linalg.Vector2f32{2.0, 2.0})
+	maze_quad := gfx.create_quad({1.0, 1.0, 1.0, 1.0}, linalg.Vector2f32{
+		Consts.TILE_WIDTH * f32(lvl_data.col_count),
+		Consts.TILE_HEIGHT * f32(lvl_data.row_count)
+	}, {
+		f32(Consts.TILE_WIDTH) / 2.0,
+		f32(Consts.TILE_HEIGHT) / 2.0,
+	})
 
-	return {maze_tex, maze_program, maze_quad};
+	return {maze_program, maze_tex, maze_quad};
 }
 
 destroy_maze :: proc(maze: ^Maze) {

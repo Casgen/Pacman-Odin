@@ -68,10 +68,10 @@ draw_pellets :: proc(count: int, ssbo: gfx.SSBO, vao_id, program_id: u32) {
     assert(count >= 0)
 
     gfx.bind_program(program_id)
-    gfx.bind_vertex_array(vao_id)
+    gfx.bind_vao(vao_id)
 
     gfx.draw_arrays(GL.POINTS, u32(count))
     gfx.bind_ssbo_base(ssbo, 0)
 
-    gfx.unbind_vertex_array()
+    gfx.unbind_vao()
 }

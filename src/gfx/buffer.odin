@@ -2,12 +2,14 @@ package gfx
 
 import GL "vendor:OpenGL"
 
+VaoId :: u32
+VboId :: u32
+
 Buffer :: struct {
-    id: u32,
+    id: VboId,
     target: u32
 }
 
-@export
 create_vao :: proc() -> u32 {
     id: u32
     GL.GenVertexArrays(1, &id)
@@ -15,8 +17,18 @@ create_vao :: proc() -> u32 {
     return id
 }
 
-@export
-create_vertex_buffer :: proc(data: [^]$T, size: int, usage: u32 = GL.STATIC_DRAW) -> Buffer {
+delete_vao :: proc(id: VaoId) {
+	id_ptr := []u32{id}
+	GL.DeleteVertexArrays(1, &id_ptr[0])
+}
+
+create_vertex_buffer :: proc {
+	create_vertex_buffer_multiptr,
+	create_vertex_buffer_slice,
+}
+
+create_vertex_buffer_multiptr :: proc(data: [^]$T, size: int, usage: u32 = GL.STATIC_DRAW) -> Buffer {
+	assert(data != nil)
 
     buffer: Buffer
     buffer.target = GL.ARRAY_BUFFER
@@ -29,7 +41,20 @@ create_vertex_buffer :: proc(data: [^]$T, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
-@export
+create_vertex_buffer_slice :: proc(data: []$T, usage: u32 = GL.STATIC_DRAW) -> Buffer {
+	assert(data != nil)
+
+    buffer: Buffer
+    buffer.target = GL.ARRAY_BUFFER
+    
+    GL.GenBuffers(1, &buffer.id) 
+    GL.BindBuffer(GL.ARRAY_BUFFER, buffer.id)
+    GL.BufferData(GL.ARRAY_BUFFER, size_of(T) * len(data), &data[0], usage)
+    GL.BindBuffer(GL.ARRAY_BUFFER, 0)
+
+    return buffer
+}
+
 create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW) -> Buffer {
 
     buffer: Buffer
@@ -43,27 +68,23 @@ create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
-@export
 delete_buffer :: proc(using buffer: ^Buffer) {
-    GL.DeleteBuffers(1, &id)
+    GL.DeleteBuffers(1, &buffer.id)
 }
 
-@export
 bind_buffer :: proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, id)
 }
 
-@export
 unbind_buffer :: proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, 0)
 }
 
-@export
-bind_vertex_array :: #force_inline proc(vao_id: u32) {
-	GL.BindVertexArray(vao_id)
+bind_vao :: #force_inline proc(id: VaoId) {
+	GL.BindVertexArray(id)
 }
 
-unbind_vertex_array :: #force_inline proc() {
+unbind_vao :: #force_inline proc() {
 	GL.BindVertexArray(0)
 }
 

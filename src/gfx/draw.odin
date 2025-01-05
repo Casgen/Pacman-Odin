@@ -19,10 +19,10 @@ draw_arrays :: proc {
 }
 
 draw_arrays_only_count :: #force_inline proc(mode: u32, count: u32) {
-    GL.DrawArrays(GL.POINTS, 0, i32(count))
+    GL.DrawArrays(mode, 0, i32(count))
 }
 
 draw_arrays_with_first :: #force_inline proc(mode: u32, first: u32, count: u32) {
-    GL.DrawArrays(GL.POINTS, i32(first), i32(count))
+    GL.DrawArrays(mode, i32(first), i32(count))
 }
 

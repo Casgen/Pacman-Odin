@@ -9,7 +9,6 @@ import "core:mem"
 import "core:c/libc"
 import "core:dynlib"
 import "gfx"
-import "dll"
 import "game"
 
 GameState :: struct {
