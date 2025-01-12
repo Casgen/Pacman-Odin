@@ -35,10 +35,7 @@ void main() {
 	const uint rotation = wall_cell >> 4;
 
 	uvec2 spritesheet_coord = uvec2(u_block_size) * uvec2(rotation, wall_type - 1) + gl_LocalInvocationID.xy;
-	// spritesheet_coord.y = u_spritesheet_dims.y - spritesheet_coord.y - 1; this is done in order to flip the Y-coord
-
 	uvec2 tex_coord = gl_WorkGroupID.xy * uvec2(u_block_size) + gl_LocalInvocationID.xy;
-	// tex_coord.y = u_block_size * u_row_count - tex_coord.y; // this is done in order to flip the Y-coord
 
 	const vec4 wall_pixel = imageLoad(spritesheet, ivec2(spritesheet_coord));
 

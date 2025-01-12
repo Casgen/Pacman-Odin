@@ -68,7 +68,7 @@ create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
-delete_buffer :: proc(using buffer: ^Buffer) {
+delete_buffer :: proc(buffer: ^Buffer) {
     GL.DeleteBuffers(1, &buffer.id)
 }
 
@@ -88,6 +88,16 @@ unbind_vao :: #force_inline proc() {
 	GL.BindVertexArray(0)
 }
 
-bind_buffer_base :: #force_inline proc(ssbo: SSBO, target: u32) {
-    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, target, ssbo.id)
+bind_buffer_base :: proc {
+	bind_buffer_base_ssbo,
+	bind_buffer_base_buf,
+}
+
+
+bind_buffer_base_ssbo :: #force_inline proc(ssbo: SSBO, index: u32) {
+    GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, index, ssbo.id)
+}
+
+bind_buffer_base_buf :: #force_inline proc(buffer: ^Buffer, index: u32) {
+    GL.BindBufferBase(buffer.target, index, buffer.id)
 }

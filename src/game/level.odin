@@ -12,7 +12,6 @@ import GL "vendor:OpenGL"
 import "core:math"
 import "../gfx"
 import "core:simd"
-import "../logger"
 
 NODE_BUFFER_SIZE_BYTES :: size_of(Node) * 512
 PELLET_BUFFER_SIZE_BYTES :: size_of(Pellet) * 1024
@@ -264,10 +263,6 @@ create_and_connect_nodes :: proc(
 		}
 	}
 
-	for &node, i in result.node_array {
-		fmt.printfln("%d. Node: %v", i, node.position)
-	}
-
 	return result
 }
 
@@ -364,9 +359,6 @@ parse_level :: proc(game_memory: ^GameMemory, lvl_data: ^LevelData) -> ^Level {
 	lvl.ghost_spawns = first_stage_result.ghost_spawns
 	lvl.col_count = i32(lvl_data.col_count)
 	lvl.row_count = i32(lvl_data.row_count)
-
-	// fmt.printfln("Pacman Spawn: %d", level.pacman_spawn)
-	// fmt.printfln("Ghost Spawns: %d", level.ghost_spawns)
 
 	return lvl
 }

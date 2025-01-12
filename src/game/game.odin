@@ -8,7 +8,7 @@ import "core:c/libc"
 import "core:time"
 import "core:mem/virtual"
 import "core:fmt"
-import "../logger"
+import "core:log"
 import "../gfx"
 
 GameState :: struct {
@@ -23,6 +23,7 @@ GameState :: struct {
 	level: ^Level,
 	quad_program: gfx.Program,
 	is_running: bool,
+	camera: ^Camera,
 }
 
 GameMemory :: struct {
@@ -75,7 +76,7 @@ debug_callback := proc "c" (source: u32, type: u32, id: u32, severity: u32, leng
     libc.fprintf(libc.stdout,"\n")
 }
 
-init_sdl_with_gl :: proc(game_memory: ^GameMemory) {
+init_sdl_with_gl :: proc() -> (window: ^SDL.Window, gl_context: SDL.GLContext) {
 
 	init_result := SDL.Init(SDL.INIT_VIDEO | SDL.INIT_JOYSTICK | SDL.INIT_EVENTS)
 
@@ -89,7 +90,7 @@ init_sdl_with_gl :: proc(game_memory: ^GameMemory) {
 	SDL.GL_SetAttribute(SDL.GLattr.DOUBLEBUFFER, 1)
 	SDL.GL_SetAttribute(SDL.GLattr.DEPTH_SIZE, 24)
 
-	game_memory.game_state.window = SDL.CreateWindow(
+	window = SDL.CreateWindow(
 		"PacMan",
 		SDL.WINDOWPOS_CENTERED,
 		SDL.WINDOWPOS_CENTERED,
@@ -98,14 +99,25 @@ init_sdl_with_gl :: proc(game_memory: ^GameMemory) {
 		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,
 	)
 
+	if window == nil {
+		error_msg := SDL.GetError()
+		log.fatalf("Failed to create an SDL window! %s", error_msg)
+		panic("Failed to create an SDL Window!")
+	}
 
     GL.load_up_to(4, 6, SDL.gl_set_proc_address)
 
-	assert(game_memory.game_state.window != nil, SDL.GetErrorString())
+	assert(window != nil, SDL.GetErrorString())
 
-	game_memory.game_state.gl_context = SDL.GL_CreateContext(game_memory.game_state.window)
+	gl_context = SDL.GL_CreateContext(window)
+	
+	if gl_context == nil {
+		error_msg := SDL.GetError()
+		log.fatalf("Failed to create an OpenGL context! %s", error_msg)
+		panic("Failed to create an OpenGL context!")
+	}
 
-	assert(game_memory.game_state.gl_context != nil, SDL.GetErrorString())
+	assert(gl_context != nil, SDL.GetErrorString())
 
 	if SDL.GL_SetSwapInterval(1) < 0 {
 		fmt.panicf("Failed to set Swap Interval!: %s", SDL.GetErrorString())
@@ -117,6 +129,8 @@ init_sdl_with_gl :: proc(game_memory: ^GameMemory) {
     GL.Enable(GL.PROGRAM_POINT_SIZE)
     GL.BlendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA)
     GL.DebugMessageCallback(debug_callback, nil)
+
+	return
 }
 
 
@@ -132,20 +146,22 @@ init :: proc() -> (GameMemory, bool) {
 	perm_ok := virtual.arena_init_static(&game_memory.permanent_storage, commit_size=1024 * 10)
 
 	if perm_ok != virtual.Allocator_Error.None {
-		logger.log_fatalfl("Failed to initialize an Arena with permanent storage!", #location(perm_ok))
+		log.fatal("Failed to initialize an Arena with permanent storage!")
 		return game_memory, false
 	}
 
 	tran_ok := virtual.arena_init_static(&game_memory.transient_storage, commit_size=mem.Megabyte * 64)
 
 	if tran_ok != virtual.Allocator_Error.None {
-		logger.log_fatalfl("Failed to initialize an Arena with permanent storage!", #location(tran_ok))
+		log.fatal("Failed to initialize an Arena with permanent storage!")
 		return game_memory, false
 	}
 
-	init_sdl_with_gl(&game_memory)
-	gfx.load_spritesheet("./res/spritesheet.png")
+	window, gl_context := init_sdl_with_gl()
+	game_memory.game_state.window = window
+	game_memory.game_state.gl_context = gl_context
 
+	gfx.load_spritesheet("./res/spritesheet.png")
 
 	game_memory.game_state.level = load_level(&game_memory, "res/mazetest.txt")
 	game_memory.game_state.is_running = true
@@ -159,6 +175,10 @@ init :: proc() -> (GameMemory, bool) {
 	game_memory.game_state.axis = create_2d_axis_program()
 
 	game_memory.game_state.quad_program = gfx.create_program("res/shaders/quad")
+
+	width, height: i32
+	SDL.GetWindowSize(game_memory.game_state.window, &width, &height)
+	game_memory.game_state.camera = camera_create(&game_memory, width, height)
 
 	return game_memory, true
 }
@@ -209,8 +229,22 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
 						game_state.is_running = false
 				}
+
+			case SDL.EventType.WINDOWEVENT:
+				window_event := event.window
+
+				switch {
+					case window_event.event == SDL.WindowEventID.RESIZED:
+						width: i32
+						height: i32
+						SDL.GetWindowSize(game_memory.game_state.window, &width, &height)
+						camera_update_resolution(game_state.camera,	width, height)
+				}
 		}
 	}
+
+	gfx.bind_buffer(&game_state.camera.ubo)
+	gfx.bind_buffer_base(&game_state.camera.ubo, 0)
 
 	pacman_update_pos(game_state.pacman, delta_time^)
 	pellet, i := try_eat_pellets(game_state.pacman, game_state.level.pellets)
@@ -229,7 +263,7 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 	draw_maze(&game_state.level.maze)
 
 	GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, game_state.level.pellets_ssbo.id)
-	GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 0, game_state.level.pellets_ssbo.id)
+	GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 1, game_state.level.pellets_ssbo.id)
 	gfx.ogl_draw_debug_points(
 		len(game_state.level.pellets),
 		game_state.level.pellets_vao_id,

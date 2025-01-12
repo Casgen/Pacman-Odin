@@ -8,7 +8,6 @@ import Consts "../constants"
 import "../gfx"
 import GL "vendor:OpenGL"
 import "core:mem/virtual"
-import "../logger"
 
 
 Pacman :: struct {
@@ -58,7 +57,7 @@ pacman_update_pos :: proc(pacman: ^Pacman, dt: f32) {
         return
     }
 
-    if NodeType.GhostOnly in pacman.target_node.flags {
+    if pacman.target_node != nil && NodeType.GhostOnly in pacman.target_node.flags {
         pacman.target_node = nil
         return
     }

@@ -9,7 +9,7 @@ import "core:fmt"
 import "../gfx"
 import GL "vendor:OpenGL"
 import "core:mem/virtual"
-import "../logger"
+import "core:log"
 
 
 // Set in millis

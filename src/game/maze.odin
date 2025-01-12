@@ -2,7 +2,7 @@ package game
 
 import GL "vendor:OpenGL"
 import "../gfx"
-import Log "../logger"
+import "core:log"
 import "core:math/linalg"
 import Consts "../constants"
 
@@ -194,7 +194,7 @@ parse_walls :: proc(lvl_data: ^LevelData) -> [dynamic]u32 {
 		result_mask, ok := wall_bitmask_map[u8(wall_bitmask)]
 
 		if !ok {
-			Log.log_errorfl("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b",
+			log.errorf("Unrecognized wall type! reverting to WallType.Empty! - result_mask value = %b",
 				#location(result_mask),
 				result_mask)
 		}

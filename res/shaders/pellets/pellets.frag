@@ -6,7 +6,7 @@ layout (location = 2) in flat int i_Id;
 
 layout (location = 0) out vec4 o_Color;
 
-layout(std430, binding = 0) buffer pellet_visiblity
+layout(std430, binding = 1) buffer pellet_visiblity
 {
     uint visibility[];
 };

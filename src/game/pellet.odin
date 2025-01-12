@@ -44,10 +44,11 @@ create_pellets_buffer :: proc(pellets: []Pellet) -> (vao_id, vbo_id: u32, ssbo: 
     gfx.push_attribute(&vertex_builder, 2, gfx.GlValueType.Float)
     gfx.push_attribute(&vertex_builder, 4, gfx.GlValueType.Float)
     gfx.push_attribute(&vertex_builder, 1, gfx.GlValueType.Float)
-
     gfx.generate_layout(&vertex_builder, vbo_id, vao_id)
 
-    return vao_id, vbo_id, gfx.create_ssbo(&visibility[0], len(visibility) * 4)
+	ssbo = gfx.create_ssbo(&visibility[0], len(visibility) * 4)
+
+    return
 }
 
 set_visibility :: proc(pellet: ^Pellet, array_index: int, ssbo: gfx.SSBO, is_visible: bool) {
