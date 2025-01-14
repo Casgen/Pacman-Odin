@@ -68,15 +68,15 @@ create_index_buffer :: proc(data: [^]u32, size: int, usage: u32 = GL.STATIC_DRAW
     return buffer
 }
 
-delete_buffer :: proc(buffer: ^Buffer) {
+delete_buffer :: #force_inline proc(buffer: ^Buffer) {
     GL.DeleteBuffers(1, &buffer.id)
 }
 
-bind_buffer :: proc(using buffer: ^Buffer) {
+bind_buffer :: #force_inline proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, id)
 }
 
-unbind_buffer :: proc(using buffer: ^Buffer) {
+unbind_buffer :: #force_inline proc(using buffer: ^Buffer) {
     GL.BindBuffer(target, 0)
 }
 

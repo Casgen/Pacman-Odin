@@ -1,14 +1,9 @@
 package main
 
-import Consts "constants"
-import "core:fmt"
 import GL "vendor:OpenGL"
 import SDL "vendor:sdl2"
 import "core:time"
-import "core:mem"
 import "core:c/libc"
-import "core:dynlib"
-import "gfx"
 import "game"
 
 GameState :: struct {

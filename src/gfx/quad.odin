@@ -65,7 +65,6 @@ create_quad :: proc(color: [4]f32, scale: linalg.Vector2f32, position: linalg.Ve
     return quad
 }
 
-@export
 destroy_quad :: proc(quad: ^Quad) {
 
 	vao_ptr: [1]u32 = [1]u32{quad.vao_id}
@@ -75,7 +74,15 @@ destroy_quad :: proc(quad: ^Quad) {
 	GL.DeleteBuffers(2, &buffer_ptrs[0])
 }
 
-@export
+
+// TODO: Refactor this to fit the code more nicely
+bind_quad :: proc(quad: ^Quad) {
+    GL.BindVertexArray(quad.vao_id)
+    GL.BindBuffer(GL.ARRAY_BUFFER, quad.vbo_id)
+    GL.BindBuffer(GL.ELEMENT_ARRAY_BUFFER, quad.ebo_id)
+}
+
+
 draw_quad :: proc(using quad: ^Quad, program_id: u32) {
     
     GL.UseProgram(program_id)

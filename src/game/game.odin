@@ -1,7 +1,6 @@
 package game
 
 import "core:mem"
-import consts "../constants"
 import SDL "vendor:sdl2"
 import GL "vendor:OpenGL"
 import "core:c/libc"
@@ -17,11 +16,9 @@ GameState :: struct {
 	window:         ^SDL.Window,
 	gl_context:     SDL.GLContext,
 
-	pacman: ^Pacman,
 	axis: AxisProgram,
-	ghost: ^Ghost, 
-	level: ^Level,
 	quad_program: gfx.Program,
+	player: ^Player,
 	is_running: bool,
 	camera: ^Camera,
 }
@@ -90,14 +87,8 @@ init_sdl_with_gl :: proc() -> (window: ^SDL.Window, gl_context: SDL.GLContext) {
 	SDL.GL_SetAttribute(SDL.GLattr.DOUBLEBUFFER, 1)
 	SDL.GL_SetAttribute(SDL.GLattr.DEPTH_SIZE, 24)
 
-	window = SDL.CreateWindow(
-		"PacMan",
-		SDL.WINDOWPOS_CENTERED,
-		SDL.WINDOWPOS_CENTERED,
-		consts.SCREEN_WIDTH,
-		consts.SCREEN_HEIGHT,
-		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,
-	)
+	window = SDL.CreateWindow("PacMan", SDL.WINDOWPOS_CENTERED, SDL.WINDOWPOS_CENTERED, 1920, 1080,
+		SDL.WINDOW_SHOWN | SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,)
 
 	if window == nil {
 		error_msg := SDL.GetError()
@@ -162,18 +153,12 @@ init :: proc() -> (GameMemory, bool) {
 	game_memory.game_state.gl_context = gl_context
 
 	gfx.load_spritesheet("./res/spritesheet.png")
-
-	game_memory.game_state.level = load_level(&game_memory, "res/mazetest.txt")
 	game_memory.game_state.is_running = true
 
-	game_memory.game_state.pacman = pacman_create(&game_memory)
-	pacman_init(game_memory.game_state.pacman, game_memory.game_state.level.pacman_spawn)
-
-	game_memory.game_state.ghost = ghost_create(&game_memory)
-	ghost_init(game_memory.game_state.ghost, game_memory.game_state.level.ghost_spawns[0], {1.0, 1.0})
+	game_memory.game_state.player, _ = arena_push_struct(&game_memory.transient_storage, Player)
+	player_init(game_memory.game_state.player)
 
 	game_memory.game_state.axis = create_2d_axis_program()
-
 	game_memory.game_state.quad_program = gfx.create_program("res/shaders/quad")
 
 	width, height: i32
@@ -187,9 +172,7 @@ deinit :: proc(game_memory: ^GameMemory) {
 
 	gfx.unbind_program()
 	gfx.unbind_texture_2d()
-	gfx.destroy_program(&game_memory.game_state.level.pellets_program)
 	destroy_axis(&game_memory.game_state.axis)
-	gfx.destroy_program(&game_memory.game_state.level.point_program)
 	gfx.destroy_program(&game_memory.game_state.quad_program)
 	gfx.destroy_spreadsheet()
 
@@ -210,6 +193,8 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 	event: SDL.Event
 	state: [^]u8
 
+	GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
+
 	start_time := time.now()._nsec
 
 	// Don't forget to call PollEvent in a while loop!
@@ -224,8 +209,24 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 				key := event.key.keysym.scancode
 
 				switch {
-					case key >= SDL.Scancode.RIGHT && key <= SDL.Scancode.UP:
-						update_direction(game_state.pacman, event.key.keysym.scancode)
+					case key == SDL.Scancode.LEFT:
+						player_set_direction(game_state.player, Direction.Left)
+					case key == SDL.Scancode.RIGHT:
+						player_set_direction(game_state.player, Direction.Right)
+					case key == SDL.Scancode.UP:
+						player_jump(game_state.player)
+					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
+						game_state.is_running = false
+				}
+
+			case SDL.EventType.KEYUP:
+				key := event.key.keysym.scancode
+
+				switch {
+					case key == SDL.Scancode.LEFT:
+						player_unset_direction(game_state.player, Direction.Left)
+					case key == SDL.Scancode.RIGHT:
+						player_unset_direction(game_state.player, Direction.Right)
 					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
 						game_state.is_running = false
 				}
@@ -242,41 +243,30 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 				}
 		}
 	}
+	
+	player_update(game_state.player, delta_time^)
 
 	gfx.bind_buffer(&game_state.camera.ubo)
 	gfx.bind_buffer_base(&game_state.camera.ubo, 0)
 
-	pacman_update_pos(game_state.pacman, delta_time^)
-	pellet, i := try_eat_pellets(game_state.pacman, game_state.level.pellets)
+	// TODO: render the player
+	gfx.bind_program(game_state.quad_program.id)
 
-	if pellet != nil {
-		set_visibility(pellet, i, game_state.level.pellets_ssbo, false)
-		fmt.println("Eaten!")
-	}
+	gfx.bind_quad(&game_state.player.quad)
 
-	ghost_update(game_state.ghost, game_state.pacman.position, delta_time^)
+    gfx.set_uniform_2f(&game_state.quad_program, "u_Scale", game_state.player.scale)
+    gfx.set_uniform_2f(&game_state.quad_program, "u_Position", game_state.player.position)
 
-	GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
+	fmt.printfln("Position: %v, Dt: %.3f", game_state.player.position, delta_time^)
 
-	// gfx.ogl_draw_debug_points(len(game_state.level.nodes), game_state.level.node_vao_id, game_state.point_program.id) 
-
-	draw_maze(&game_state.level.maze)
-
-	GL.BindBuffer(GL.SHADER_STORAGE_BUFFER, game_state.level.pellets_ssbo.id)
-	GL.BindBufferBase(GL.SHADER_STORAGE_BUFFER, 1, game_state.level.pellets_ssbo.id)
-	gfx.ogl_draw_debug_points(
-		len(game_state.level.pellets),
-		game_state.level.pellets_vao_id,
-		game_state.level.pellets_program.id
-	) 
-
-	ogl_debug_render_player(game_state.pacman, &game_state.quad_program)
-	ogl_debug_render_ghost(game_state.ghost, &game_state.quad_program)
+	gfx.draw_quad(&game_state.player.quad, game_state.quad_program.id)
 
 	draw_axis(&game_state.axis)
 
 	SDL.GL_SwapWindow(game_state.window)
 
 	delta_time^ = f32((time.now()._nsec - start_time) / 1_000_000)
+
+
 }
 

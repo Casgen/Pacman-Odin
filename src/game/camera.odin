@@ -8,17 +8,18 @@ ZOOM_INCREMENT : f32 : 0.1
 CameraMovementDirection :: enum {Up, Down, Left, Right}
 
 Camera :: struct {
-    proj: linalg.Matrix4f32,
-    view:       linalg.Matrix4f32,
-    position:   linalg.Vector3f32,
-    up_vec:     linalg.Vector3f32,
-    fwd_vec:    linalg.Vector3f32,
-    side_vec:   linalg.Vector3f32,
+    proj:           linalg.Matrix4f32,
+    view:           linalg.Matrix4f32,
+    position:       linalg.Vector3f32,
+    up_vec:         linalg.Vector3f32,
+    fwd_vec:        linalg.Vector3f32,
+    side_vec:       linalg.Vector3f32,
 
-	current_dir: bit_set[CameraMovementDirection],
-	speed: f32,
-	aspect_ratio: f32,
-	ubo: gfx.UBO
+	current_dir:    bit_set[CameraMovementDirection],
+	speed:          f32,
+    zoom:           f32,
+	aspect_ratio:   f32,
+	ubo:            gfx.UBO
 }
 
 camera_create :: proc(game_memory: ^GameMemory, width, height: i32) -> ^Camera {
@@ -27,11 +28,11 @@ camera_create :: proc(game_memory: ^GameMemory, width, height: i32) -> ^Camera {
 
 	aspect_ratio := f32(width) / f32(height)
 
-    camera.position = {0.0, 0.0, 0.0}
+    camera.position = {0.0, 0.0, 1.0}
 	camera.aspect_ratio = aspect_ratio
-    camera.proj = linalg.matrix_ortho3d_f32(-1, 1 , -1, 1, 0, 1)
-    camera.up_vec = {0.0, -1.0, 0.0}
-    camera.fwd_vec = {0.0, 0.0, 1.0}
+    camera.proj = linalg.matrix_ortho3d_f32(-1, 1, -1/aspect_ratio, 1/aspect_ratio, 0, 2)
+    camera.up_vec = {0.0, 1.0, 0.0}
+    camera.fwd_vec = {0.0, 0.0, -1.0}
     camera.side_vec = linalg.cross(camera.up_vec, camera.side_vec)
 	camera.view = linalg.matrix4_look_at_f32(camera.position, camera.fwd_vec, camera.up_vec)
 
@@ -50,12 +51,13 @@ camera_create :: proc(game_memory: ^GameMemory, width, height: i32) -> ^Camera {
 
 camera_update_resolution :: proc(cam: ^Camera, width: i32, height: i32) {
 	cam.aspect_ratio = f32(width) / f32(height)
+	camera_update_props(cam)
 }
 
 @private
 camera_update_props :: proc(cam: ^Camera) {
-    cam.proj = linalg.matrix_ortho3d_f32(-1, 1, -1, 1, 0, 1)
-	cam.view = linalg.matrix4_look_at_f32(cam.position, cam.fwd_vec, cam.up_vec)
+    cam.proj = linalg.matrix_ortho3d_f32(-1, 1, -1/cam.aspect_ratio, 1/cam.aspect_ratio, 0, 2)
+	cam.view = linalg.matrix4_look_at_f32(cam.position - cam.fwd_vec, cam.fwd_vec, cam.up_vec)
 }
 
 camera_zoom_in :: proc(cam: ^Camera) {

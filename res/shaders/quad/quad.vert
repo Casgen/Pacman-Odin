@@ -14,8 +14,6 @@ layout (std140, binding = 0) uniform CameraMatrices {
 
 uniform vec2 u_Scale;
 uniform vec2 u_Position;
-uniform float u_Layer;
-uniform mat3 u_Projection;
 
 void main() {
     o_texCoords = a_texCoords;
@@ -24,5 +22,5 @@ void main() {
     new_position += u_Position;
 
     o_Color = a_Color;
-    gl_Position = mats.proj * mats.view * vec4(new_position, u_Layer, 1.0);
+    gl_Position = mats.proj * mats.view * vec4(new_position, 0.0, 1.0);
 }
