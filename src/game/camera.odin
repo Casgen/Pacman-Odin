@@ -18,7 +18,7 @@ Camera :: struct {
 	current_dir:    bit_set[CameraMovementDirection],
 	speed:          f32,
     zoom:           f32,
-	aspect_ratio:   f32,
+	resolution:     [2]i32,
 	ubo:            gfx.UBO
 }
 
@@ -26,11 +26,13 @@ camera_create :: proc(game_memory: ^GameMemory, width, height: i32) -> ^Camera {
 	camera, ok := arena_push_struct(&game_memory.transient_storage, Camera)
 	assert(ok)
 
-	aspect_ratio := f32(width) / f32(height)
-
+    camera.resolution = {width, height}
     camera.position = {0.0, 0.0, 1.0}
-	camera.aspect_ratio = aspect_ratio
-    camera.proj = linalg.matrix_ortho3d_f32(-1, 1, -1/aspect_ratio, 1/aspect_ratio, 0, 2)
+    camera.proj = linalg.matrix_ortho3d_f32(
+        -f32(width) * 0.5 * 0.002, f32(width) * 0.5 * 0.002,
+        -f32(height) * 0.5 * 0.002, f32(height) * 0.5 * 0.002,
+        0, 2
+    )
     camera.up_vec = {0.0, 1.0, 0.0}
     camera.fwd_vec = {0.0, 0.0, -1.0}
     camera.side_vec = linalg.cross(camera.up_vec, camera.side_vec)
@@ -50,13 +52,17 @@ camera_create :: proc(game_memory: ^GameMemory, width, height: i32) -> ^Camera {
 }
 
 camera_update_resolution :: proc(cam: ^Camera, width: i32, height: i32) {
-	cam.aspect_ratio = f32(width) / f32(height)
+	cam.resolution = {width, height}
 	camera_update_props(cam)
 }
 
 @private
 camera_update_props :: proc(cam: ^Camera) {
-    cam.proj = linalg.matrix_ortho3d_f32(-1, 1, -1/cam.aspect_ratio, 1/cam.aspect_ratio, 0, 2)
+    cam.proj = linalg.matrix_ortho3d_f32(
+        -f32(cam.resolution[0]) * 0.5 * 0.002, f32(cam.resolution[0]) * 0.5 * 0.002,
+        -f32(cam.resolution[1]) * 0.5 * 0.002, f32(cam.resolution[1]) * 0.5 * 0.002,
+        0, 2
+    )
 	cam.view = linalg.matrix4_look_at_f32(cam.position - cam.fwd_vec, cam.fwd_vec, cam.up_vec)
 }
 

@@ -17,9 +17,7 @@ GameState :: struct {
 	gl_context:     SDL.GLContext,
 
 	axis: AxisProgram,
-	quad_program: gfx.Program,
-	player: ^Player,
-	is_running: bool,
+	quad_program: gfx.Program, player: ^Player, is_running: bool,
 	camera: ^Camera,
 }
 
@@ -191,8 +189,6 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 	game_state := &game_memory.game_state
 
 	event: SDL.Event
-	state: [^]u8
-
 	GL.Clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT)
 
 	start_time := time.now()._nsec
@@ -206,31 +202,12 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 			case SDL.EventType.QUIT:
 				game_state.is_running = false
 			case SDL.EventType.KEYDOWN:
-				key := event.key.keysym.scancode
-
-				switch {
-					case key == SDL.Scancode.LEFT:
-						player_set_direction(game_state.player, Direction.Left)
-					case key == SDL.Scancode.RIGHT:
-						player_set_direction(game_state.player, Direction.Right)
-					case key == SDL.Scancode.UP:
-						player_jump(game_state.player)
-					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
-						game_state.is_running = false
-				}
-
+			    if event.key.keysym.scancode == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT {
+					game_state.is_running = false
+                }
+                player_handle_input(game_state.player, &event)
 			case SDL.EventType.KEYUP:
-				key := event.key.keysym.scancode
-
-				switch {
-					case key == SDL.Scancode.LEFT:
-						player_unset_direction(game_state.player, Direction.Left)
-					case key == SDL.Scancode.RIGHT:
-						player_unset_direction(game_state.player, Direction.Right)
-					case key == SDL.Scancode.F4 && event.key.keysym.mod == SDL.KMOD_LALT:
-						game_state.is_running = false
-				}
-
+                player_handle_input(game_state.player, &event)
 			case SDL.EventType.WINDOWEVENT:
 				window_event := event.window
 
@@ -256,8 +233,6 @@ update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 
     gfx.set_uniform_2f(&game_state.quad_program, "u_Scale", game_state.player.scale)
     gfx.set_uniform_2f(&game_state.quad_program, "u_Position", game_state.player.position)
-
-	fmt.printfln("Position: %v, Dt: %.3f", game_state.player.position, delta_time^)
 
 	gfx.draw_quad(&game_state.player.quad, game_state.quad_program.id)
 
