@@ -150,7 +150,6 @@ init :: proc() -> (GameMemory, bool) {
 	game_memory.game_state.window = window
 	game_memory.game_state.gl_context = gl_context
 
-	gfx.load_spritesheet("./res/spritesheet.png")
 	game_memory.game_state.is_running = true
 
 	game_memory.game_state.player, _ = arena_push_struct(&game_memory.transient_storage, Player)
@@ -172,7 +171,6 @@ deinit :: proc(game_memory: ^GameMemory) {
 	gfx.unbind_texture_2d()
 	destroy_axis(&game_memory.game_state.axis)
 	gfx.destroy_program(&game_memory.game_state.quad_program)
-	gfx.destroy_spreadsheet()
 
 	virtual.arena_destroy(&game_memory.permanent_storage)
 	virtual.arena_destroy(&game_memory.transient_storage)
@@ -181,9 +179,6 @@ deinit :: proc(game_memory: ^GameMemory) {
 	SDL.DestroyRenderer(game_memory.game_state.renderer)
 }
 
-// TODO: Gotta figure out, why is it running so fast. Probably left out a piece of code which made the
-// game run at a fixed rate. Gotta integrate that. Also, the algorithm for finding next nodes in the ghost
-// seems to be not work properly. Probably not enough time to stay in one of the states for a long time
 update :: proc(game_memory: ^GameMemory, delta_time: ^f32) {
 	
 	game_state := &game_memory.game_state

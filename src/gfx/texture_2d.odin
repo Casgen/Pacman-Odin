@@ -5,6 +5,7 @@ import "core:c/libc"
 import GL "vendor:OpenGL"
 import "core:path/filepath"
 import "core:strings"
+import "core:log"
 
 Texture2D :: struct {
 	id: u32,
@@ -16,7 +17,7 @@ Texture2D :: struct {
 // 
 // TODO: Implement further options for interpreting more formats!
 @export
-create_texture_2d_path :: proc(path: cstring) -> Texture2D {
+create_texture_2d_path :: proc(path: cstring) -> (Texture2D, bool) {
 
     stbi.set_flip_vertically_on_load_thread(false)
 
@@ -31,7 +32,8 @@ create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 	defer stbi.image_free(contents)
 
 	if contents == nil {
-		panic("Failed to load the spritesheet! quiting the game!")
+		log.errorf("Failed to load an Image for a texture! Contents are nil! | Path: '%s'", path)
+        return Texture2D{}, false
 	}
 
     GL.GenTextures(1, &img_id) 
@@ -45,7 +47,7 @@ create_texture_2d_path :: proc(path: cstring) -> Texture2D {
 
     GL.TexImage2D(GL.TEXTURE_2D, 0, GL.RGBA32F, img_width, img_height, 0, GL.RGBA, GL.UNSIGNED_BYTE, contents)
 
-    return {img_id, img_width, img_height}
+    return {img_id, img_width, img_height}, true
 }
 
 // Creates a blank 2D texture

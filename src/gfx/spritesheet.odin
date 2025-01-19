@@ -18,7 +18,13 @@ spritesheet: ^SpriteSheet = nil;
 load_spritesheet :: proc(path: cstring) {
 	// Have to call `new` here. It is a pointer after all!
 	spritesheet = new(SpriteSheet)
-	spritesheet.tex = create_texture_2d(path)
+
+    ok: bool
+	spritesheet.tex, ok = create_texture_2d(path)
+
+    if !ok {
+        panic("Failed to load the Spritesheet!")
+    }
 }
 
 @export
@@ -40,7 +46,7 @@ bind_spritesheet :: proc(slot: u32) {
 }
 
 @export
-destroy_spreadsheet :: proc() {
+destroy_spritesheet :: proc() {
 	ptr: [1]u32 = [1]u32{spritesheet.tex.id}
 	GL.DeleteTextures(1, &ptr[0])
 }
